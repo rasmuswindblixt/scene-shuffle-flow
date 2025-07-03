@@ -14,9 +14,10 @@ interface Scene {
 interface SceneTimelineProps {
   scenes: Scene[];
   videoUrl: string;
+  onScenePreview?: (scene: Scene) => void;
 }
 
-const SceneTimeline = ({ scenes, videoUrl }: SceneTimelineProps) => {
+const SceneTimeline = ({ scenes, videoUrl, onScenePreview }: SceneTimelineProps) => {
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const [playingScene, setPlayingScene] = useState<string | null>(null);
 
@@ -48,15 +49,10 @@ const SceneTimeline = ({ scenes, videoUrl }: SceneTimelineProps) => {
 
   const playScene = (scene: Scene) => {
     setPlayingScene(scene.id);
-    // Create a video element to seek to the scene and play it
-    const video = document.createElement('video');
-    video.src = videoUrl;
-    video.currentTime = scene.startTime;
-    video.play();
+    onScenePreview?.(scene);
     
-    // Stop playback after scene duration
+    // Auto-stop the playing indicator after scene duration
     setTimeout(() => {
-      video.pause();
       setPlayingScene(null);
     }, scene.duration * 1000);
   };

@@ -1,13 +1,37 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 interface VideoPreviewProps {
   videoUrl: string;
+  onSeekToTime?: (time: number) => void;
 }
 
-const VideoPreview = ({ videoUrl }: VideoPreviewProps) => {
+interface VideoPreviewRef {
+  seekAndPlay: (startTime: number, duration?: number) => void;
+}
+
+const VideoPreview = forwardRef<VideoPreviewRef, VideoPreviewProps>(({ videoUrl, onSeekToTime }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    seekAndPlay: (startTime: number, duration?: number) => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = startTime;
+        videoRef.current.play();
+        setIsPlaying(true);
+        
+        if (duration) {
+          setTimeout(() => {
+            if (videoRef.current) {
+              videoRef.current.pause();
+              setIsPlaying(false);
+            }
+          }, duration * 1000);
+        }
+      }
+    }
+  }));
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -177,6 +201,7 @@ const VideoPreview = ({ videoUrl }: VideoPreviewProps) => {
       </CardContent>
     </Card>
   );
-};
+});
 
 export default VideoPreview;
+export type { VideoPreviewRef };

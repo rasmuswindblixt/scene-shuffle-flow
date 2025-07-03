@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import SceneDetector from "@/components/SceneDetector";
 import SceneTimeline from "@/components/SceneTimeline";
-import VideoPreview from "@/components/VideoPreview";
+import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
 
 interface VideoProcessorProps {
   videoFile: File;
@@ -23,6 +23,7 @@ interface Scene {
 }
 
 const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) => {
+  const videoPreviewRef = useRef<VideoPreviewRef>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [scenes, setScenes] = useState<Scene[]>([]);
@@ -91,6 +92,33 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     setFilteredScenes(result);
     setCurrentStep('shuffle');
     toast.success("Scenes shuffled successfully!");
+  };
+
+  const handleScenePreview = (scene: Scene) => {
+    videoPreviewRef.current?.seekAndPlay(scene.startTime, scene.duration);
+  };
+
+  const previewFinalVideo = () => {
+    if (filteredScenes.length === 0) {
+      toast.error("No scenes to preview");
+      return;
+    }
+    
+    // Play first scene as preview
+    const firstScene = filteredScenes[0];
+    videoPreviewRef.current?.seekAndPlay(firstScene.startTime, firstScene.duration);
+    toast.success("Playing preview of shuffled scenes");
+  };
+
+  const exportVideo = () => {
+    if (filteredScenes.length === 0) {
+      toast.error("No scenes to export");
+      return;
+    }
+    
+    // In a real implementation, this would trigger video export
+    toast.success(`Exporting ${filteredScenes.length} scenes...`);
+    setCurrentStep('export');
   };
 
   return (
@@ -163,7 +191,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-8">
           {/* Video Preview */}
-          <VideoPreview videoUrl={videoUrl} />
+          <VideoPreview ref={videoPreviewRef} videoUrl={videoUrl} />
 
           {/* Scene Detection */}
           {currentStep === 'upload' && (
@@ -198,6 +226,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
             <SceneTimeline 
               scenes={currentStep === 'filter' || currentStep === 'shuffle' ? filteredScenes : scenes}
               videoUrl={videoUrl}
+              onScenePreview={handleScenePreview}
             />
           )}
         </div>
@@ -275,11 +304,11 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                   Shuffle Scenes
                 </Button>
                 
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" onClick={previewFinalVideo} className="w-full">
                   Preview Final Video
                 </Button>
                 
-                <Button variant="premium" className="w-full">
+                <Button variant="premium" onClick={exportVideo} className="w-full">
                   Export Video
                 </Button>
               </CardContent>
