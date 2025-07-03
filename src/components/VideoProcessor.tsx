@@ -186,13 +186,20 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           addLog(`Processing: ${progressPercent.toFixed(1)}%`);
         });
         
-        addLog("Loading FFmpeg core files from jsdelivr CDN...");
+        addLog("Loading FFmpeg core files...");
         
-        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
-        await ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        });
+        try {
+          // Use unpkg as primary CDN with timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
+          
+          await ffmpeg.load();
+          clearTimeout(timeoutId);
+          addLog("FFmpeg loaded successfully!");
+        } catch (error) {
+          addLog(`FFmpeg loading failed: ${error}`);
+          throw new Error("Failed to load video processing engine. Please check your internet connection and try again.");
+        }
         
         ffmpegRef.current = ffmpeg;
         setExportProgress(10);
