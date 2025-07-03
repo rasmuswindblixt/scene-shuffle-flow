@@ -171,6 +171,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       // Create a video element for processing
       const videoElement = document.createElement('video');
       videoElement.src = videoUrl;
+      videoElement.muted = true; // Mute audio during export
       videoElement.preload = 'metadata';
       
       addLog("Loading video metadata...");
@@ -198,11 +199,13 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
         canvas.width = videoElement.videoWidth || 640;
         canvas.height = videoElement.videoHeight || 480;
         
-        // Set up MediaRecorder
+        // Set up MediaRecorder with MP4 support if available
         const stream = canvas.captureStream(30);
-        const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: 'video/webm;codecs=vp9'
-        });
+        let mimeType = 'video/mp4';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'video/webm;codecs=vp9';
+        }
+        const mediaRecorder = new MediaRecorder(stream, { mimeType });
         
         const chunks: Blob[] = [];
         mediaRecorder.ondataavailable = (event) => {
@@ -278,7 +281,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     const url = URL.createObjectURL(exportedVideoBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${videoFile.name.split('.')[0]}_exported.webm`;
+    a.download = `${videoFile.name.split('.')[0]}_exported.mp4`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
