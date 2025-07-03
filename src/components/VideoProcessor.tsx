@@ -166,113 +166,95 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     setCurrentStep('export');
     
     try {
-      addLog("Starting export process...");
+      addLog("Starting browser-native video export...");
       
-      // Load FFmpeg dynamically when needed
-      if (!ffmpegRef.current) {
-        addLog("Loading video processing engine...");
-        toast.success("Loading video processing engine...");
-        const ffmpeg = new FFmpeg();
-        
-        ffmpeg.on('log', ({ message }) => {
-          console.log('FFmpeg log:', message);
-          addLog(`FFmpeg: ${message}`);
-        });
-        
-        ffmpeg.on('progress', ({ progress }) => {
-          console.log('FFmpeg progress:', progress);
-          const progressPercent = Math.max(10, progress * 100);
-          setExportProgress(progressPercent);
-          addLog(`Processing: ${progressPercent.toFixed(1)}%`);
-        });
-        
-        addLog("Loading FFmpeg core files...");
-        
-        try {
-          // Use unpkg as primary CDN with timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000);
-          
-          await ffmpeg.load();
-          clearTimeout(timeoutId);
-          addLog("FFmpeg loaded successfully!");
-        } catch (error) {
-          addLog(`FFmpeg loading failed: ${error}`);
-          throw new Error("Failed to load video processing engine. Please check your internet connection and try again.");
-        }
-        
-        ffmpegRef.current = ffmpeg;
-        setExportProgress(10);
-        addLog("Video processing engine loaded successfully!");
-        toast.success("Processing engine ready!");
-      }
+      // Create a video element for processing
+      const videoElement = document.createElement('video');
+      videoElement.src = videoUrl;
+      videoElement.preload = 'metadata';
       
-      const ffmpeg = ffmpegRef.current;
-
-      // Write input video file to FFmpeg filesystem
-      addLog("Preparing input video file...");
-      toast.success("Preparing video...");
-      await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
-      setExportProgress(20);
-      addLog("Input video file prepared");
-
-      // Create a simple concatenation list
-      let concatList = '';
-      const segments: string[] = [];
+      addLog("Loading video metadata...");
+      await new Promise((resolve, reject) => {
+        videoElement.onloadedmetadata = resolve;
+        videoElement.onerror = reject;
+      });
       
-      addLog(`Processing ${filteredScenes.length} scenes...`);
+      setExportProgress(10);
+      addLog("Video metadata loaded successfully");
       
+      const recordedChunks: Blob[] = [];
+      
+      // Process each scene
       for (let i = 0; i < filteredScenes.length; i++) {
         const scene = filteredScenes[i];
         const startTime = scene.startTime + trimStart;
-        const duration = Math.max(0.1, scene.duration - trimStart - trimEnd);
+        const duration = Math.max(0.5, scene.duration - trimStart - trimEnd);
         
-        const segmentName = `segment_${i}.mp4`;
-        segments.push(segmentName);
+        addLog(`Processing scene ${i + 1}/${filteredScenes.length} (${startTime.toFixed(1)}s for ${duration.toFixed(1)}s)`);
         
-        addLog(`Extracting scene ${i + 1}/${filteredScenes.length} (${startTime.toFixed(1)}s-${(startTime + duration).toFixed(1)}s)`);
-        toast.success(`Processing scene ${i + 1}/${filteredScenes.length}...`);
+        // Create canvas for recording
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+        canvas.width = videoElement.videoWidth || 640;
+        canvas.height = videoElement.videoHeight || 480;
         
-        // Extract each scene segment
-        await ffmpeg.exec([
-          '-i', 'input.mp4',
-          '-ss', startTime.toString(),
-          '-t', duration.toString(),
-          '-c', 'copy',
-          '-avoid_negative_ts', 'make_zero',
-          segmentName
-        ]);
+        // Set up MediaRecorder
+        const stream = canvas.captureStream(30);
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9'
+        });
         
-        concatList += `file '${segmentName}'\n`;
-        const progress = 20 + (i + 1) / filteredScenes.length * 60;
+        const chunks: Blob[] = [];
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            chunks.push(event.data);
+          }
+        };
+        
+        // Seek to scene start
+        videoElement.currentTime = startTime;
+        await new Promise(resolve => {
+          videoElement.onseeked = resolve;
+        });
+        
+        // Start recording
+        mediaRecorder.start();
+        videoElement.play();
+        
+        // Record for the scene duration
+        const recordingPromise = new Promise<void>((resolve) => {
+          mediaRecorder.onstop = () => {
+            const sceneBlob = new Blob(chunks, { type: 'video/webm' });
+            recordedChunks.push(sceneBlob);
+            resolve();
+          };
+        });
+        
+        // Draw video frames to canvas
+        const drawFrame = () => {
+          if (videoElement.currentTime < startTime + duration && !videoElement.paused) {
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            requestAnimationFrame(drawFrame);
+          } else {
+            videoElement.pause();
+            mediaRecorder.stop();
+          }
+        };
+        
+        drawFrame();
+        await recordingPromise;
+        
+        const progress = 10 + ((i + 1) / filteredScenes.length) * 80;
         setExportProgress(progress);
-        addLog(`Scene ${i + 1} extracted successfully`);
+        addLog(`Scene ${i + 1} recorded successfully`);
       }
       
-      // Write concat list
-      addLog("Creating concatenation list...");
-      await ffmpeg.writeFile('concat_list.txt', concatList);
+      addLog("Combining all scenes...");
       
-      addLog("Merging all scenes into final video...");
-      toast.success("Merging scenes...");
-      // Concatenate all segments
-      await ffmpeg.exec([
-        '-f', 'concat',
-        '-safe', '0',
-        '-i', 'concat_list.txt',
-        '-c', 'copy',
-        'output.mp4'
-      ]);
+      // Combine all recorded chunks
+      const finalBlob = new Blob(recordedChunks, { type: 'video/webm' });
       
-      setExportProgress(90);
-      addLog("Scenes merged successfully");
-      
-      // Read the output file
-      addLog("Reading final video file...");
-      const outputData = await ffmpeg.readFile('output.mp4');
-      const blob = new Blob([outputData], { type: 'video/mp4' });
-      
-      setExportedVideoBlob(blob);
+      setExportedVideoBlob(finalBlob);
       setIsExporting(false);
       setExportCompleted(true);
       setExportProgress(100);
@@ -296,7 +278,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     const url = URL.createObjectURL(exportedVideoBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${videoFile.name.split('.')[0]}_exported.mp4`;
+    a.download = `${videoFile.name.split('.')[0]}_exported.webm`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
