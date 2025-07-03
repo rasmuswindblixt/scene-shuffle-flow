@@ -48,8 +48,17 @@ const SceneTimeline = ({ scenes, videoUrl }: SceneTimelineProps) => {
 
   const playScene = (scene: Scene) => {
     setPlayingScene(scene.id);
-    // In a real implementation, this would control video playback
-    setTimeout(() => setPlayingScene(null), scene.duration * 1000);
+    // Create a video element to seek to the scene and play it
+    const video = document.createElement('video');
+    video.src = videoUrl;
+    video.currentTime = scene.startTime;
+    video.play();
+    
+    // Stop playback after scene duration
+    setTimeout(() => {
+      video.pause();
+      setPlayingScene(null);
+    }, scene.duration * 1000);
   };
 
   return (
@@ -136,6 +145,17 @@ const SceneTimeline = ({ scenes, videoUrl }: SceneTimelineProps) => {
                     `}
                     onClick={() => handleSceneClick(scene.id)}
                   >
+                    {/* Scene thumbnail */}
+                    {scene.thumbnail && (
+                      <div className="mb-3">
+                        <img 
+                          src={scene.thumbnail} 
+                          alt={`Scene ${scenes.indexOf(scene) + 1} thumbnail`}
+                          className="w-full h-20 object-cover rounded border"
+                        />
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">
                         Scene {scenes.indexOf(scene) + 1}

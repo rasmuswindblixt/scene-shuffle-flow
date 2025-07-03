@@ -30,6 +30,25 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing, segmentLength 
     }
   }, [isAnalyzing, videoUrl]);
 
+  const generateThumbnail = async (video: HTMLVideoElement, time: number): Promise<string> => {
+    return new Promise((resolve) => {
+      const thumbnailCanvas = document.createElement('canvas');
+      const thumbnailCtx = thumbnailCanvas.getContext('2d')!;
+      
+      thumbnailCanvas.width = 160;
+      thumbnailCanvas.height = 90;
+      
+      const seekHandler = () => {
+        thumbnailCtx.drawImage(video, 0, 0, thumbnailCanvas.width, thumbnailCanvas.height);
+        resolve(thumbnailCanvas.toDataURL('image/jpeg', 0.8));
+        video.removeEventListener('seeked', seekHandler);
+      };
+      
+      video.addEventListener('seeked', seekHandler);
+      video.currentTime = time;
+    });
+  };
+
   const startSceneDetection = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -76,13 +95,16 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing, segmentLength 
           
           if (sceneDuration > 0.5) { // Minimum scene length
             const segment = Math.floor(lastSceneStart / segmentLength);
+            const thumbnailTime = lastSceneStart + sceneDuration / 2;
+            const thumbnail = await generateThumbnail(video, thumbnailTime);
             
             scenes.push({
               id: `scene-${scenes.length}`,
               startTime: lastSceneStart,
               endTime: sceneEnd,
               duration: sceneDuration,
-              segment: segment
+              segment: segment,
+              thumbnail: thumbnail
             });
           }
           
@@ -99,12 +121,17 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing, segmentLength 
     // Add final scene
     if (duration - lastSceneStart > 0.5) {
       const segment = Math.floor(lastSceneStart / segmentLength);
+      const sceneDuration = duration - lastSceneStart;
+      const thumbnailTime = lastSceneStart + sceneDuration / 2;
+      const thumbnail = await generateThumbnail(video, thumbnailTime);
+      
       scenes.push({
         id: `scene-${scenes.length}`,
         startTime: lastSceneStart,
         endTime: duration,
-        duration: duration - lastSceneStart,
-        segment: segment
+        duration: sceneDuration,
+        segment: segment,
+        thumbnail: thumbnail
       });
     }
 
@@ -113,13 +140,17 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing, segmentLength 
       for (let time = 0; time < duration; time += 3 + Math.random() * 2) {
         const endTime = Math.min(time + 2 + Math.random() * 3, duration);
         const segment = Math.floor(time / segmentLength);
+        const sceneDuration = endTime - time;
+        const thumbnailTime = time + sceneDuration / 2;
+        const thumbnail = await generateThumbnail(video, thumbnailTime);
         
         scenes.push({
           id: `scene-${scenes.length}`,
           startTime: time,
           endTime: endTime,
-          duration: endTime - time,
-          segment: segment
+          duration: sceneDuration,
+          segment: segment,
+          thumbnail: thumbnail
         });
         
         time = endTime;
