@@ -32,6 +32,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [currentStep, setCurrentStep] = useState<'upload' | 'analyze' | 'filter' | 'shuffle' | 'export'>('upload');
   const [minDuration, setMinDuration] = useState(1);
   const [maxDuration, setMaxDuration] = useState(6);
+  const [minFinalClipLength, setMinFinalClipLength] = useState(0.5);
   const [segmentLength, setSegmentLength] = useState(120); // 2 minutes in seconds
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
@@ -76,7 +77,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       startTime: scene.startTime + trimStart,
       endTime: scene.endTime - trimEnd,
       duration: scene.duration - trimStart - trimEnd
-    })).filter(scene => scene.duration > 0);
+    })).filter(scene => scene.duration >= minFinalClipLength);
     
     setFilteredScenes(filtered);
     toast.success(`Filtered to ${filtered.length} scenes`);
@@ -170,24 +171,36 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   };
 
   const downloadVideo = () => {
-    // Simulate download by creating a blob and triggering download
-    const videoInfo = {
-      scenes: filteredScenes.length,
-      totalDuration: filteredScenes.reduce((acc, scene) => acc + scene.duration, 0),
-      trimSettings: { start: trimStart, end: trimEnd }
-    };
+    // Simulate video file download by creating a dummy video blob
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext('2d');
     
-    const blob = new Blob([JSON.stringify(videoInfo, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${videoFile.name.split('.')[0]}_exported.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (ctx) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = '24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Exported Video', canvas.width / 2, canvas.height / 2);
+      ctx.fillText(`${filteredScenes.length} scenes`, canvas.width / 2, canvas.height / 2 + 30);
+    }
     
-    toast.success("Download started!");
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${videoFile.name.split('.')[0]}_exported.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast.success("Video download started!");
+      }
+    }, 'video/mp4');
   };
 
   return (
@@ -333,6 +346,24 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                       className="w-full"
                     />
                   </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Min Final Clip Length: {minFinalClipLength.toFixed(1)}s
+                  </label>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="3"
+                    step="0.1"
+                    value={minFinalClipLength}
+                    onChange={(e) => setMinFinalClipLength(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Filters out clips shorter than this after trimming
+                  </p>
                 </div>
                 
                 <div>
