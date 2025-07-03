@@ -7,6 +7,17 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import VideoApp from "./pages/App";
 import Auth from "./pages/Auth";
+import About from "./pages/About";
+import Blog from "./pages/Blog";
+import Careers from "./pages/Careers";
+import Contact from "./pages/Contact";
+import HelpCenter from "./pages/HelpCenter";
+import Documentation from "./pages/Documentation";
+import Community from "./pages/Community";
+import Status from "./pages/Status";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import Cookies from "./pages/Cookies";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
