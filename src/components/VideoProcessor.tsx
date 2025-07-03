@@ -460,28 +460,6 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                   </p>
                 </div>
                 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Export Quality:</label>
-                  <select 
-                    value={selectedQuality?.label || ""} 
-                    onChange={(e) => {
-                      const quality = qualityOptions.find(q => q.label === e.target.value);
-                      setSelectedQuality(quality || null);
-                    }}
-                    className="w-full p-2 rounded border bg-background text-foreground"
-                  >
-                    {qualityOptions
-                      .filter(q => q.height <= (originalVideoQuality?.height || 1080))
-                      .map(quality => (
-                        <option key={quality.label} value={quality.label}>
-                          {quality.label} ({quality.width}×{quality.height})
-                        </option>
-                      ))}
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Cannot exceed original video quality
-                  </p>
-                </div>
               </CardContent>
             </Card>
           )}
@@ -608,6 +586,27 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                 <Button variant="outline" onClick={previewFinalVideo} className="w-full">
                   Preview Final Video
                 </Button>
+                
+                {/* Export Quality Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Export Quality:</label>
+                  <select 
+                    value={selectedQuality?.label || ""} 
+                    onChange={(e) => {
+                      const quality = qualityOptions.find(q => q.label === e.target.value);
+                      setSelectedQuality(quality || null);
+                    }}
+                    className="w-full p-2 rounded border bg-background text-foreground"
+                  >
+                    {qualityOptions
+                      .filter(q => q.height <= (originalVideoQuality?.height || 1080))
+                      .map(quality => (
+                        <option key={quality.label} value={quality.label}>
+                          {quality.label} ({quality.width}×{quality.height})
+                        </option>
+                      ))}
+                  </select>
+                </div>
                 
                 <Button variant="premium" onClick={exportVideo} className="w-full">
                   Export Video

@@ -5,9 +5,10 @@ import { toast } from "sonner";
 
 interface VideoUploadProps {
   onVideoUpload: (file: File) => void;
+  onBack?: () => void;
 }
 
-const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
+const VideoUpload = ({ onVideoUpload, onBack }: VideoUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +70,11 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
+          {onBack && (
+            <Button variant="outline" onClick={onBack} className="mb-6">
+              ← Back to Mode Selection
+            </Button>
+          )}
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             Upload Your Video
           </h1>
