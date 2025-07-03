@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import SceneDetector from "@/components/SceneDetector";
 import SceneTimeline from "@/components/SceneTimeline";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
@@ -25,6 +27,7 @@ interface Scene {
 
 const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) => {
   const videoPreviewRef = useRef<VideoPreviewRef>(null);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [scenes, setScenes] = useState<Scene[]>([]);
@@ -42,6 +45,30 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [exportCompleted, setExportCompleted] = useState(false);
   const [currentPreviewIndex, setCurrentPreviewIndex] = useState(-1);
   const [isPreviewingFinal, setIsPreviewingFinal] = useState(false);
+  const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null);
+
+  useEffect(() => {
+    const loadFFmpeg = async () => {
+      if (!ffmpegRef.current) {
+        const ffmpeg = new FFmpeg();
+        
+        try {
+          const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          });
+          
+          ffmpegRef.current = ffmpeg;
+        } catch (error) {
+          console.error('Error loading FFmpeg:', error);
+          toast.error("Failed to load video processing engine");
+        }
+      }
+    };
+    
+    loadFFmpeg();
+  }, []);
 
   const startAnalysis = () => {
     setIsAnalyzing(true);
@@ -144,9 +171,14 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     }, scene.duration * 1000);
   };
 
-  const exportVideo = () => {
+  const exportVideo = async () => {
     if (filteredScenes.length === 0) {
       toast.error("No scenes to export");
+      return;
+    }
+
+    if (!ffmpegRef.current) {
+      toast.error("Video processing engine not ready");
       return;
     }
     
@@ -155,52 +187,85 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     setExportProgress(0);
     setCurrentStep('export');
     
-    // Simulate export progress
-    const interval = setInterval(() => {
-      setExportProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsExporting(false);
-          setExportCompleted(true);
-          toast.success("Video exported successfully!");
-          return 100;
-        }
-        return prev + 10;
+    try {
+      const ffmpeg = ffmpegRef.current;
+      
+      // Set up progress monitoring
+      ffmpeg.on('progress', ({ progress }) => {
+        setExportProgress(progress * 100);
       });
-    }, 300);
+
+      // Write input video file to FFmpeg filesystem
+      await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
+      
+      // Build filter complex for concatenating clips
+      const filterParts: string[] = [];
+      const inputParts: string[] = [];
+      
+      for (let i = 0; i < filteredScenes.length; i++) {
+        const scene = filteredScenes[i];
+        const startTime = scene.startTime + trimStart;
+        const duration = scene.duration - trimStart - trimEnd;
+        
+        // Extract each scene segment
+        await ffmpeg.exec([
+          '-i', 'input.mp4',
+          '-ss', startTime.toString(),
+          '-t', duration.toString(),
+          '-c', 'copy',
+          `-segment_${i}.mp4`
+        ]);
+        
+        inputParts.push(`-i segment_${i}.mp4`);
+        filterParts.push(`[${i}:v][${i}:a]`);
+      }
+      
+      // Concatenate all segments
+      const filterComplex = `${filterParts.join('')}concat=n=${filteredScenes.length}:v=1:a=1[outv][outa]`;
+      
+      await ffmpeg.exec([
+        ...inputParts.join(' ').split(' '),
+        '-filter_complex', filterComplex,
+        '-map', '[outv]',
+        '-map', '[outa]',
+        '-c:v', 'libx264',
+        '-c:a', 'aac',
+        'output.mp4'
+      ]);
+      
+      // Read the output file
+      const outputData = await ffmpeg.readFile('output.mp4');
+      const blob = new Blob([outputData], { type: 'video/mp4' });
+      
+      setExportedVideoBlob(blob);
+      setIsExporting(false);
+      setExportCompleted(true);
+      setExportProgress(100);
+      toast.success("Video exported successfully!");
+      
+    } catch (error) {
+      console.error('Export error:', error);
+      setIsExporting(false);
+      toast.error("Failed to export video");
+    }
   };
 
   const downloadVideo = () => {
-    // Simulate video file download by creating a dummy video blob
-    const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 360;
-    const ctx = canvas.getContext('2d');
-    
-    if (ctx) {
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#fff';
-      ctx.font = '24px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Exported Video', canvas.width / 2, canvas.height / 2);
-      ctx.fillText(`${filteredScenes.length} scenes`, canvas.width / 2, canvas.height / 2 + 30);
+    if (!exportedVideoBlob) {
+      toast.error("No exported video available");
+      return;
     }
     
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${videoFile.name.split('.')[0]}_exported.mp4`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        toast.success("Video download started!");
-      }
-    }, 'video/mp4');
+    const url = URL.createObjectURL(exportedVideoBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${videoFile.name.split('.')[0]}_exported.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast.success("Video download started!");
   };
 
   return (
