@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import SceneDetector from "@/components/SceneDetector";
 import SceneTimeline from "@/components/SceneTimeline";
@@ -32,36 +33,48 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [minDuration, setMinDuration] = useState(1);
   const [maxDuration, setMaxDuration] = useState(6);
   const [segmentLength, setSegmentLength] = useState(120); // 2 minutes in seconds
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const startAnalysis = () => {
     setIsAnalyzing(true);
     setCurrentStep('analyze');
     setAnalysisProgress(0);
     
-    // Simulate progress
+    // Extended analysis time to ensure complete scene detection
     const interval = setInterval(() => {
       setAnalysisProgress(prev => {
         if (prev >= 100) {
           clearInterval(interval);
-          setIsAnalyzing(false);
-          setCurrentStep('filter');
-          toast.success("Scene detection completed!");
+          // Don't move to filter step automatically - wait for scenes to be detected
           return 100;
         }
-        return prev + 10;
+        return prev + 5; // Slower progress for more thorough analysis
       });
-    }, 300);
+    }, 500); // Longer intervals
   };
 
   const handleScenesDetected = (detectedScenes: Scene[]) => {
     setScenes(detectedScenes);
+    setIsAnalyzing(false);
+    setCurrentStep('filter');
     applyFilters(detectedScenes);
+    toast.success("Scene detection completed!");
   };
 
   const applyFilters = (scenesToFilter: Scene[] = scenes) => {
     const filtered = scenesToFilter.filter(scene => 
       scene.duration >= minDuration && scene.duration <= maxDuration
-    );
+    ).map(scene => ({
+      ...scene,
+      startTime: scene.startTime + trimStart,
+      endTime: scene.endTime - trimEnd,
+      duration: scene.duration - trimStart - trimEnd
+    })).filter(scene => scene.duration > 0);
+    
     setFilteredScenes(filtered);
     toast.success(`Filtered to ${filtered.length} scenes`);
   };
@@ -116,9 +129,23 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       return;
     }
     
-    // In a real implementation, this would trigger video export
-    toast.success(`Exporting ${filteredScenes.length} scenes...`);
+    setShowExportDialog(true);
+    setIsExporting(true);
+    setExportProgress(0);
     setCurrentStep('export');
+    
+    // Simulate export progress
+    const interval = setInterval(() => {
+      setExportProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsExporting(false);
+          toast.success("Video exported successfully!");
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 300);
   };
 
   return (
@@ -281,6 +308,36 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                   />
                 </div>
 
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Trim Start: {trimStart.toFixed(1)}s
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={trimStart}
+                    onChange={(e) => setTrimStart(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Trim End: {trimEnd.toFixed(1)}s
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={trimEnd}
+                    onChange={(e) => setTrimEnd(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+
                 <Button onClick={() => applyFilters()} className="w-full">
                   Apply Filters
                 </Button>
@@ -349,6 +406,44 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           )}
         </div>
       </div>
+
+      {/* Export Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Exporting Video</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p>Processing {filteredScenes.length} scenes...</p>
+              <p>Applying trim settings: Start {trimStart.toFixed(1)}s, End {trimEnd.toFixed(1)}s</p>
+            </div>
+            
+            {isExporting && (
+              <div className="space-y-2">
+                <Progress value={exportProgress} className="w-full" />
+                <p className="text-sm text-center text-muted-foreground">
+                  {exportProgress}% complete
+                </p>
+              </div>
+            )}
+
+            {!isExporting && exportProgress === 100 && (
+              <div className="text-center">
+                <p className="text-sm text-green-600 font-medium">
+                  Export completed successfully!
+                </p>
+                <Button 
+                  className="mt-4" 
+                  onClick={() => setShowExportDialog(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
