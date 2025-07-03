@@ -167,62 +167,135 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     
     try {
       addLog("Starting export process...");
-      addLog("Creating video segments using browser APIs...");
       
-      // Create a simple download of scene timestamps instead of actual video processing
-      const sceneData = {
-        originalVideo: videoFile.name,
-        scenes: filteredScenes.map(scene => ({
-          startTime: scene.startTime + trimStart,
-          endTime: scene.endTime - trimEnd,
-          duration: scene.duration - trimStart - trimEnd
-        })),
-        settings: {
-          trimStart,
-          trimEnd,
-          minDuration,
-          maxDuration
-        }
-      };
+      // Load FFmpeg dynamically when needed
+      if (!ffmpegRef.current) {
+        addLog("Loading video processing engine...");
+        toast.success("Loading video processing engine...");
+        const ffmpeg = new FFmpeg();
+        
+        ffmpeg.on('log', ({ message }) => {
+          console.log('FFmpeg log:', message);
+          addLog(`FFmpeg: ${message}`);
+        });
+        
+        ffmpeg.on('progress', ({ progress }) => {
+          console.log('FFmpeg progress:', progress);
+          const progressPercent = Math.max(10, progress * 100);
+          setExportProgress(progressPercent);
+          addLog(`Processing: ${progressPercent.toFixed(1)}%`);
+        });
+        
+        addLog("Loading FFmpeg core files from jsdelivr CDN...");
+        
+        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        
+        ffmpegRef.current = ffmpeg;
+        setExportProgress(10);
+        addLog("Video processing engine loaded successfully!");
+        toast.success("Processing engine ready!");
+      }
       
-      setExportProgress(50);
-      addLog("Generating scene list...");
+      const ffmpeg = ffmpegRef.current;
+
+      // Write input video file to FFmpeg filesystem
+      addLog("Preparing input video file...");
+      toast.success("Preparing video...");
+      await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
+      setExportProgress(20);
+      addLog("Input video file prepared");
+
+      // Create a simple concatenation list
+      let concatList = '';
+      const segments: string[] = [];
       
-      // Create a downloadable JSON file with scene information
-      const jsonContent = JSON.stringify(sceneData, null, 2);
-      const blob = new Blob([jsonContent], { type: 'application/json' });
+      addLog(`Processing ${filteredScenes.length} scenes...`);
+      
+      for (let i = 0; i < filteredScenes.length; i++) {
+        const scene = filteredScenes[i];
+        const startTime = scene.startTime + trimStart;
+        const duration = Math.max(0.1, scene.duration - trimStart - trimEnd);
+        
+        const segmentName = `segment_${i}.mp4`;
+        segments.push(segmentName);
+        
+        addLog(`Extracting scene ${i + 1}/${filteredScenes.length} (${startTime.toFixed(1)}s-${(startTime + duration).toFixed(1)}s)`);
+        toast.success(`Processing scene ${i + 1}/${filteredScenes.length}...`);
+        
+        // Extract each scene segment
+        await ffmpeg.exec([
+          '-i', 'input.mp4',
+          '-ss', startTime.toString(),
+          '-t', duration.toString(),
+          '-c', 'copy',
+          '-avoid_negative_ts', 'make_zero',
+          segmentName
+        ]);
+        
+        concatList += `file '${segmentName}'\n`;
+        const progress = 20 + (i + 1) / filteredScenes.length * 60;
+        setExportProgress(progress);
+        addLog(`Scene ${i + 1} extracted successfully`);
+      }
+      
+      // Write concat list
+      addLog("Creating concatenation list...");
+      await ffmpeg.writeFile('concat_list.txt', concatList);
+      
+      addLog("Merging all scenes into final video...");
+      toast.success("Merging scenes...");
+      // Concatenate all segments
+      await ffmpeg.exec([
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', 'concat_list.txt',
+        '-c', 'copy',
+        'output.mp4'
+      ]);
+      
+      setExportProgress(90);
+      addLog("Scenes merged successfully");
+      
+      // Read the output file
+      addLog("Reading final video file...");
+      const outputData = await ffmpeg.readFile('output.mp4');
+      const blob = new Blob([outputData], { type: 'video/mp4' });
       
       setExportedVideoBlob(blob);
       setIsExporting(false);
       setExportCompleted(true);
       setExportProgress(100);
-      addLog("Scene list export completed!");
-      toast.success("Scene data exported! Use video editing software to cut the scenes.");
+      addLog("Export completed successfully!");
+      toast.success("Video exported successfully!");
       
     } catch (error) {
       console.error('Export error:', error);
       addLog(`ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsExporting(false);
-      toast.error(`Failed to export: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to export video: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const downloadVideo = () => {
     if (!exportedVideoBlob) {
-      toast.error("No export data available");
+      toast.error("No exported video available");
       return;
     }
     
     const url = URL.createObjectURL(exportedVideoBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${videoFile.name.split('.')[0]}_scenes.json`;
+    a.download = `${videoFile.name.split('.')[0]}_exported.mp4`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    toast.success("Scene data downloaded!");
+    toast.success("Video download started!");
   };
 
   return (
