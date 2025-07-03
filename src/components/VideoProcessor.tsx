@@ -38,6 +38,9 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportCompleted, setExportCompleted] = useState(false);
+  const [currentPreviewIndex, setCurrentPreviewIndex] = useState(-1);
+  const [isPreviewingFinal, setIsPreviewingFinal] = useState(false);
 
   const startAnalysis = () => {
     setIsAnalyzing(true);
@@ -117,10 +120,27 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       return;
     }
     
-    // Play first scene as preview
-    const firstScene = filteredScenes[0];
-    videoPreviewRef.current?.seekAndPlay(firstScene.startTime, firstScene.duration);
-    toast.success("Playing preview of shuffled scenes");
+    setIsPreviewingFinal(true);
+    setCurrentPreviewIndex(0);
+    playSceneSequence(0);
+    toast.success("Playing preview of all scenes");
+  };
+
+  const playSceneSequence = (index: number) => {
+    if (index >= filteredScenes.length) {
+      setIsPreviewingFinal(false);
+      setCurrentPreviewIndex(-1);
+      toast.success("Preview completed");
+      return;
+    }
+
+    const scene = filteredScenes[index];
+    videoPreviewRef.current?.seekAndPlay(scene.startTime, scene.duration);
+    
+    // Schedule next scene
+    setTimeout(() => {
+      playSceneSequence(index + 1);
+    }, scene.duration * 1000);
   };
 
   const exportVideo = () => {
@@ -140,12 +160,34 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
         if (prev >= 100) {
           clearInterval(interval);
           setIsExporting(false);
+          setExportCompleted(true);
           toast.success("Video exported successfully!");
           return 100;
         }
         return prev + 10;
       });
     }, 300);
+  };
+
+  const downloadVideo = () => {
+    // Simulate download by creating a blob and triggering download
+    const videoInfo = {
+      scenes: filteredScenes.length,
+      totalDuration: filteredScenes.reduce((acc, scene) => acc + scene.duration, 0),
+      trimSettings: { start: trimStart, end: trimEnd }
+    };
+    
+    const blob = new Blob([JSON.stringify(videoInfo, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${videoFile.name.split('.')[0]}_exported.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast.success("Download started!");
   };
 
   return (
@@ -429,16 +471,24 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
             )}
 
             {!isExporting && exportProgress === 100 && (
-              <div className="text-center">
+              <div className="text-center space-y-3">
                 <p className="text-sm text-green-600 font-medium">
                   Export completed successfully!
                 </p>
-                <Button 
-                  className="mt-4" 
-                  onClick={() => setShowExportDialog(false)}
-                >
-                  Close
-                </Button>
+                <div className="flex gap-2 justify-center">
+                  <Button 
+                    variant="premium"
+                    onClick={downloadVideo}
+                  >
+                    Download Video
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowExportDialog(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
             )}
           </div>
