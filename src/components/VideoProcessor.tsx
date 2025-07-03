@@ -16,6 +16,12 @@ interface VideoProcessorProps {
   onReset: () => void;
 }
 
+interface QualityOption {
+  label: string;
+  height: number;
+  width: number;
+}
+
 interface Scene {
   id: string;
   startTime: number;
@@ -47,8 +53,44 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [isPreviewingFinal, setIsPreviewingFinal] = useState(false);
   const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null);
   const [exportLogs, setExportLogs] = useState<string[]>([]);
+  const [originalVideoQuality, setOriginalVideoQuality] = useState<{width: number, height: number} | null>(null);
+  const [selectedQuality, setSelectedQuality] = useState<QualityOption | null>(null);
 
-  const startAnalysis = () => {
+  const qualityOptions: QualityOption[] = [
+    { label: "420p", height: 420, width: 747 },
+    { label: "720p", height: 720, width: 1280 },
+    { label: "1080p", height: 1080, width: 1920 }
+  ];
+
+  const detectVideoQuality = async () => {
+    const videoElement = document.createElement('video');
+    videoElement.src = videoUrl;
+    videoElement.muted = true;
+    videoElement.preload = 'metadata';
+    
+    await new Promise((resolve, reject) => {
+      videoElement.onloadedmetadata = resolve;
+      videoElement.onerror = reject;
+    });
+    
+    const quality = {
+      width: videoElement.videoWidth || 640,
+      height: videoElement.videoHeight || 480
+    };
+    
+    setOriginalVideoQuality(quality);
+    
+    // Set default quality to original or closest lower option
+    const availableQualities = qualityOptions.filter(q => q.height <= quality.height);
+    if (availableQualities.length > 0) {
+      setSelectedQuality(availableQualities[availableQualities.length - 1]);
+    } else {
+      setSelectedQuality(qualityOptions[0]); // Fallback to lowest quality
+    }
+  };
+
+  const startAnalysis = async () => {
+    await detectVideoQuality();
     setIsAnalyzing(true);
     setCurrentStep('analyze');
     setAnalysisProgress(0);
@@ -183,11 +225,11 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       setExportProgress(10);
       addLog("Video metadata loaded successfully");
       
-      // Create canvas for recording all scenes
+      // Create canvas for recording all scenes with selected quality
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
-      canvas.width = videoElement.videoWidth || 640;
-      canvas.height = videoElement.videoHeight || 480;
+      canvas.width = selectedQuality?.width || videoElement.videoWidth || 640;
+      canvas.height = selectedQuality?.height || videoElement.videoHeight || 480;
       
       addLog(`Starting recording of ${filteredScenes.length} scenes sequentially...`);
       
@@ -402,6 +444,48 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
 
         {/* Controls Sidebar */}
         <div className="space-y-6">
+          {/* Video Quality Info */}
+          {originalVideoQuality && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Video Quality</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-sm">
+                  <p className="font-medium mb-2">Original Quality:</p>
+                  <p className="text-muted-foreground">
+                    {originalVideoQuality.width} × {originalVideoQuality.height}
+                    {originalVideoQuality.height >= 1080 ? " (1080p+)" : 
+                     originalVideoQuality.height >= 720 ? " (720p+)" : " (SD)"}
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Export Quality:</label>
+                  <select 
+                    value={selectedQuality?.label || ""} 
+                    onChange={(e) => {
+                      const quality = qualityOptions.find(q => q.label === e.target.value);
+                      setSelectedQuality(quality || null);
+                    }}
+                    className="w-full p-2 rounded border bg-background text-foreground"
+                  >
+                    {qualityOptions
+                      .filter(q => q.height <= (originalVideoQuality?.height || 1080))
+                      .map(quality => (
+                        <option key={quality.label} value={quality.label}>
+                          {quality.label} ({quality.width}×{quality.height})
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Cannot exceed original video quality
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Filter Controls */}
           {scenes.length > 0 && (
             <Card>

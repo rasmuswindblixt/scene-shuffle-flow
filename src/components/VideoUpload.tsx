@@ -18,8 +18,8 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
       return;
     }
 
-    if (file.size > 500 * 1024 * 1024) { // 500MB limit
-      toast.error("File size must be less than 500MB");
+    if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
+      toast.error("File size must be less than 2GB");
       return;
     }
 
@@ -126,9 +126,9 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
                   <Button variant="hero" size="lg" onClick={openFileDialog}>
                     Select Video File
                   </Button>
-                  <p className="text-sm text-muted-foreground">
-                    Supports MP4, MOV, AVI, WebM • Max size: 500MB
-                  </p>
+                   <p className="text-sm text-muted-foreground">
+                     Supports MP4, MOV, AVI, WebM • Max size: 2GB
+                   </p>
                 </div>
               </div>
             )}
