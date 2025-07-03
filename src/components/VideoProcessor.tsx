@@ -186,12 +186,8 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           addLog(`Processing: ${progressPercent.toFixed(1)}%`);
         });
         
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-        addLog("Downloading FFmpeg core files...");
-        await ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        });
+        addLog("Loading FFmpeg core files...");
+        await ffmpeg.load();
         
         ffmpegRef.current = ffmpeg;
         setExportProgress(10);
