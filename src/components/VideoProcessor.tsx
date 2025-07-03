@@ -46,6 +46,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [currentPreviewIndex, setCurrentPreviewIndex] = useState(-1);
   const [isPreviewingFinal, setIsPreviewingFinal] = useState(false);
   const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null);
+  const [exportLogs, setExportLogs] = useState<string[]>([]);
 
   const startAnalysis = () => {
     setIsAnalyzing(true);
@@ -148,6 +149,10 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     }, scene.duration * 1000);
   };
 
+  const addLog = (message: string) => {
+    setExportLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
+
   const exportVideo = async () => {
     if (filteredScenes.length === 0) {
       toast.error("No scenes to export");
@@ -157,24 +162,32 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     setShowExportDialog(true);
     setIsExporting(true);
     setExportProgress(0);
+    setExportLogs([]);
     setCurrentStep('export');
     
     try {
+      addLog("Starting export process...");
+      
       // Load FFmpeg dynamically when needed
       if (!ffmpegRef.current) {
+        addLog("Loading video processing engine...");
         toast.success("Loading video processing engine...");
         const ffmpeg = new FFmpeg();
         
         ffmpeg.on('log', ({ message }) => {
           console.log('FFmpeg log:', message);
+          addLog(`FFmpeg: ${message}`);
         });
         
         ffmpeg.on('progress', ({ progress }) => {
           console.log('FFmpeg progress:', progress);
-          setExportProgress(Math.max(10, progress * 100)); // Ensure minimum 10% for loading
+          const progressPercent = Math.max(10, progress * 100);
+          setExportProgress(progressPercent);
+          addLog(`Processing: ${progressPercent.toFixed(1)}%`);
         });
         
         const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+        addLog("Downloading FFmpeg core files...");
         await ffmpeg.load({
           coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
           wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
@@ -182,19 +195,24 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
         
         ffmpegRef.current = ffmpeg;
         setExportProgress(10);
+        addLog("Video processing engine loaded successfully!");
         toast.success("Processing engine ready!");
       }
       
       const ffmpeg = ffmpegRef.current;
 
       // Write input video file to FFmpeg filesystem
+      addLog("Preparing input video file...");
       toast.success("Preparing video...");
       await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
       setExportProgress(20);
+      addLog("Input video file prepared");
 
       // Create a simple concatenation list
       let concatList = '';
       const segments: string[] = [];
+      
+      addLog(`Processing ${filteredScenes.length} scenes...`);
       
       for (let i = 0; i < filteredScenes.length; i++) {
         const scene = filteredScenes[i];
@@ -204,6 +222,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
         const segmentName = `segment_${i}.mp4`;
         segments.push(segmentName);
         
+        addLog(`Extracting scene ${i + 1}/${filteredScenes.length} (${startTime.toFixed(1)}s-${(startTime + duration).toFixed(1)}s)`);
         toast.success(`Processing scene ${i + 1}/${filteredScenes.length}...`);
         
         // Extract each scene segment
@@ -217,12 +236,16 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
         ]);
         
         concatList += `file '${segmentName}'\n`;
-        setExportProgress(20 + (i + 1) / filteredScenes.length * 60);
+        const progress = 20 + (i + 1) / filteredScenes.length * 60;
+        setExportProgress(progress);
+        addLog(`Scene ${i + 1} extracted successfully`);
       }
       
       // Write concat list
+      addLog("Creating concatenation list...");
       await ffmpeg.writeFile('concat_list.txt', concatList);
       
+      addLog("Merging all scenes into final video...");
       toast.success("Merging scenes...");
       // Concatenate all segments
       await ffmpeg.exec([
@@ -234,8 +257,10 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       ]);
       
       setExportProgress(90);
+      addLog("Scenes merged successfully");
       
       // Read the output file
+      addLog("Reading final video file...");
       const outputData = await ffmpeg.readFile('output.mp4');
       const blob = new Blob([outputData], { type: 'video/mp4' });
       
@@ -243,10 +268,12 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       setIsExporting(false);
       setExportCompleted(true);
       setExportProgress(100);
+      addLog("Export completed successfully!");
       toast.success("Video exported successfully!");
       
     } catch (error) {
       console.error('Export error:', error);
+      addLog(`ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsExporting(false);
       toast.error(`Failed to export video: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -565,6 +592,18 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                 <p className="text-sm text-center text-muted-foreground">
                   {exportProgress.toFixed(0)}% complete
                 </p>
+                
+                {/* Export Logs */}
+                <div className="mt-4 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+                  <h4 className="text-sm font-medium mb-2">Processing Logs:</h4>
+                  <div className="text-xs space-y-1">
+                    {exportLogs.map((log, index) => (
+                      <div key={index} className="text-gray-600">
+                        {log}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
