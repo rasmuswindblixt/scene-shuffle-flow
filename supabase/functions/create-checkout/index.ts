@@ -7,30 +7,71 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper logging function for debugging
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Create a Supabase client using the anon key
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-  );
-
   try {
-    const authHeader = req.headers.get("Authorization")!;
-    const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
-    const user = data.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
+    logStep("Function started");
 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { apiVersion: "2023-10-16" });
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      logStep("ERROR: STRIPE_SECRET_KEY is not set");
+      throw new Error("STRIPE_SECRET_KEY is not set");
+    }
+    logStep("Stripe key found", { keyPrefix: stripeKey.substring(0, 10) });
+
+    // Create a Supabase client using the anon key
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    );
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      logStep("ERROR: No authorization header");
+      throw new Error("No authorization header provided");
+    }
+    logStep("Authorization header found");
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data, error: authError } = await supabaseClient.auth.getUser(token);
+    
+    if (authError) {
+      logStep("ERROR: Authentication failed", { error: authError.message });
+      throw new Error(`Authentication error: ${authError.message}`);
+    }
+    
+    const user = data.user;
+    if (!user?.email) {
+      logStep("ERROR: User not authenticated or email not available");
+      throw new Error("User not authenticated or email not available");
+    }
+    logStep("User authenticated", { userId: user.id, email: user.email });
+
+    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+    logStep("Stripe client initialized");
+
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    logStep("Customer lookup completed", { found: customers.data.length > 0 });
+    
     let customerId;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
+      logStep("Existing customer found", { customerId });
+    } else {
+      logStep("No existing customer found");
     }
+
+    const origin = req.headers.get("origin") || "https://lipflxccmarrnmksypmm.supabase.co";
+    logStep("Creating checkout session", { origin });
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -47,16 +88,24 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/app?success=true`,
-      cancel_url: `${req.headers.get("origin")}/app?canceled=true`,
+      success_url: `${origin}/app?success=true`,
+      cancel_url: `${origin}/app?canceled=true`,
     });
+
+    logStep("Checkout session created successfully", { sessionId: session.id, url: session.url });
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR in create-checkout", { message: errorMessage });
+    
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      details: "Check function logs for more information" 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
