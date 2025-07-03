@@ -46,38 +46,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [currentPreviewIndex, setCurrentPreviewIndex] = useState(-1);
   const [isPreviewingFinal, setIsPreviewingFinal] = useState(false);
   const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null);
-  const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
-  const [ffmpegLoading, setFfmpegLoading] = useState(false);
 
-  useEffect(() => {
-    const loadFFmpeg = async () => {
-      if (!ffmpegRef.current && !ffmpegLoading) {
-        setFfmpegLoading(true);
-        const ffmpeg = new FFmpeg();
-        
-        try {
-          console.log('Loading FFmpeg...');
-          const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          });
-          
-          ffmpegRef.current = ffmpeg;
-          setFfmpegLoaded(true);
-          setFfmpegLoading(false);
-          console.log('FFmpeg loaded successfully');
-          toast.success("Video processing engine ready!");
-        } catch (error) {
-          console.error('Error loading FFmpeg:', error);
-          setFfmpegLoading(false);
-          toast.error("Failed to load video processing engine. Please refresh the page and try again.");
-        }
-      }
-    };
-    
-    loadFFmpeg();
-  }, [ffmpegLoading]);
 
   const startAnalysis = () => {
     setIsAnalyzing(true);
@@ -185,11 +154,6 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       toast.error("No scenes to export");
       return;
     }
-
-    if (!ffmpegRef.current) {
-      toast.error("Video processing engine not ready");
-      return;
-    }
     
     setShowExportDialog(true);
     setIsExporting(true);
@@ -197,6 +161,21 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     setCurrentStep('export');
     
     try {
+      // Load FFmpeg dynamically when needed
+      if (!ffmpegRef.current) {
+        toast.success("Loading video processing engine...");
+        const ffmpeg = new FFmpeg();
+        
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        
+        ffmpegRef.current = ffmpeg;
+        toast.success("Processing engine ready!");
+      }
+      
       const ffmpeg = ffmpegRef.current;
       
       // Set up progress monitoring
@@ -512,13 +491,8 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                   Preview Final Video
                 </Button>
                 
-                <Button 
-                  variant="premium" 
-                  onClick={exportVideo} 
-                  className="w-full"
-                  disabled={!ffmpegLoaded || ffmpegLoading}
-                >
-                  {ffmpegLoading ? "Loading Engine..." : ffmpegLoaded ? "Export Video" : "Engine Loading..."}
+                <Button variant="premium" onClick={exportVideo} className="w-full">
+                  Export Video
                 </Button>
               </CardContent>
             </Card>
