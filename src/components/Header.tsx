@@ -25,11 +25,11 @@ const Header = () => {
           <a href="#pricing" className="text-foreground/80 hover:text-foreground transition-colors">
             Pricing
           </a>
-          <a href="#" className="text-foreground/80 hover:text-foreground transition-colors">
-            Demo
+          <a href="#faq" className="text-foreground/80 hover:text-foreground transition-colors">
+            FAQ
           </a>
           <a href="#" className="text-foreground/80 hover:text-foreground transition-colors">
-            Support
+            Demo
           </a>
         </nav>
 

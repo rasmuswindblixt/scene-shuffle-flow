@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft } from 'lucide-react';
 
 const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -92,7 +93,18 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md">
+        {/* Back to Home Button */}
+        <div className="mb-6">
+          <Button variant="ghost" asChild className="text-muted-foreground hover:text-foreground">
+            <Link to="/" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Home
+            </Link>
+          </Button>
+        </div>
+        
+        <Card>
         <CardHeader>
           <CardTitle className="text-2xl text-center">
             {isSignUp ? 'Create Account' : 'Sign In'}
@@ -184,6 +196,7 @@ const Auth = () => {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
