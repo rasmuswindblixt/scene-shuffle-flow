@@ -183,36 +183,39 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       setExportProgress(10);
       addLog("Video metadata loaded successfully");
       
-      const recordedChunks: Blob[] = [];
+      // Create canvas for recording all scenes
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      canvas.width = videoElement.videoWidth || 640;
+      canvas.height = videoElement.videoHeight || 480;
       
-      // Process each scene
+      addLog(`Starting recording of ${filteredScenes.length} scenes sequentially...`);
+      
+      // Set up MediaRecorder with MP4 support if available
+      const stream = canvas.captureStream(30);
+      let mimeType = 'video/mp4';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm;codecs=vp9';
+      }
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      
+      const recordedChunks: Blob[] = [];
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunks.push(event.data);
+        }
+      };
+      
+      // Start recording
+      mediaRecorder.start();
+      
+      // Process all scenes sequentially
       for (let i = 0; i < filteredScenes.length; i++) {
         const scene = filteredScenes[i];
         const startTime = scene.startTime + trimStart;
         const duration = Math.max(0.5, scene.duration - trimStart - trimEnd);
         
-        addLog(`Processing scene ${i + 1}/${filteredScenes.length} (${startTime.toFixed(1)}s for ${duration.toFixed(1)}s)`);
-        
-        // Create canvas for recording
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d')!;
-        canvas.width = videoElement.videoWidth || 640;
-        canvas.height = videoElement.videoHeight || 480;
-        
-        // Set up MediaRecorder with MP4 support if available
-        const stream = canvas.captureStream(30);
-        let mimeType = 'video/mp4';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'video/webm;codecs=vp9';
-        }
-        const mediaRecorder = new MediaRecorder(stream, { mimeType });
-        
-        const chunks: Blob[] = [];
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            chunks.push(event.data);
-          }
-        };
+        addLog(`Recording scene ${i + 1}/${filteredScenes.length} (${startTime.toFixed(1)}s for ${duration.toFixed(1)}s)`);
         
         // Seek to scene start
         videoElement.currentTime = startTime;
@@ -220,44 +223,41 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           videoElement.onseeked = resolve;
         });
         
-        // Start recording
-        mediaRecorder.start();
+        // Play and record this scene
         videoElement.play();
         
-        // Record for the scene duration
-        const recordingPromise = new Promise<void>((resolve) => {
-          mediaRecorder.onstop = () => {
-            const sceneBlob = new Blob(chunks, { type: 'video/webm' });
-            recordedChunks.push(sceneBlob);
-            resolve();
+        const sceneEndTime = startTime + duration;
+        await new Promise<void>((resolve) => {
+          const drawFrame = () => {
+            if (videoElement.currentTime < sceneEndTime && !videoElement.paused) {
+              ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+              requestAnimationFrame(drawFrame);
+            } else {
+              videoElement.pause();
+              resolve();
+            }
           };
+          drawFrame();
         });
-        
-        // Draw video frames to canvas
-        const drawFrame = () => {
-          if (videoElement.currentTime < startTime + duration && !videoElement.paused) {
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            requestAnimationFrame(drawFrame);
-          } else {
-            videoElement.pause();
-            mediaRecorder.stop();
-          }
-        };
-        
-        drawFrame();
-        await recordingPromise;
         
         const progress = 10 + ((i + 1) / filteredScenes.length) * 80;
         setExportProgress(progress);
         addLog(`Scene ${i + 1} recorded successfully`);
       }
       
-      addLog("Combining all scenes...");
+      // Stop recording
+      mediaRecorder.stop();
       
-      // Combine all recorded chunks
-      const finalBlob = new Blob(recordedChunks, { type: 'video/webm' });
+      addLog("Finalizing video export...");
       
-      setExportedVideoBlob(finalBlob);
+      // Wait for final recording data
+      await new Promise<void>((resolve) => {
+        mediaRecorder.onstop = () => {
+          const finalBlob = new Blob(recordedChunks, { type: mimeType });
+          setExportedVideoBlob(finalBlob);
+          resolve();
+        };
+      });
       setIsExporting(false);
       setExportCompleted(true);
       setExportProgress(100);
