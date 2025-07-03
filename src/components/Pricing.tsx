@@ -10,12 +10,12 @@ const Pricing = () => {
             💎 Simple Pricing
           </div>
           <h2 className="text-4xl md:text-5xl font-bold">
-            One Plan,
-            <span className="bg-gradient-primary bg-clip-text text-transparent"> Unlimited Potential</span>
+            Professional Video Splitting
+            <span className="bg-gradient-primary bg-clip-text text-transparent"> Made Simple</span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            No complex tiers or hidden fees. Just powerful video splitting tools 
-            at an affordable monthly price.
+            Advanced AI-powered video splitting tools for content creators and video editors. 
+            Get professional results instantly.
           </p>
         </div>
 
@@ -35,7 +35,7 @@ const Pricing = () => {
               </CardDescription>
               <div className="mt-6">
                 <div className="text-5xl font-bold">
-                  $10
+                  $12.99
                   <span className="text-xl text-muted-foreground font-normal">/month</span>
                 </div>
                 <div className="text-sm text-muted-foreground mt-2">
@@ -67,10 +67,10 @@ const Pricing = () => {
 
               <div className="pt-6">
                 <Button variant="premium" size="lg" className="w-full text-lg py-6" asChild>
-                  <a href="/app">Start Free 7-Day Trial</a>
+                  <a href="/app">Subscribe Now</a>
                 </Button>
                 <p className="text-center text-sm text-muted-foreground mt-3">
-                  No credit card required for trial
+                  Secure payment • Instant access
                 </p>
               </div>
             </CardContent>

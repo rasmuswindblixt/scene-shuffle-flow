@@ -99,7 +99,7 @@ const Auth = () => {
           </CardTitle>
           <CardDescription className="text-center">
             {isSignUp 
-              ? 'Get started with 3 free video exports!' 
+              ? 'Join thousands of content creators!' 
               : 'Welcome back to Video Splitter'
             }
           </CardDescription>

@@ -30,7 +30,7 @@ const Hero = () => {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Button variant="hero" size="lg" className="text-lg px-8 py-6" asChild>
-                <a href="/app">Start Free Trial</a>
+                <a href="/app">Get Started Now</a>
               </Button>
               <Button variant="outline" size="lg" className="text-lg px-8 py-6">
                 Watch Demo
@@ -40,11 +40,11 @@ const Hero = () => {
             <div className="flex items-center gap-8 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-primary rounded-full"></div>
-                No credit card required
+                Instant access
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-primary rounded-full"></div>
-                Free 7-day trial
+                Professional quality
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-primary rounded-full"></div>

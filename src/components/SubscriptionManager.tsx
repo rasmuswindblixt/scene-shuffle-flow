@@ -119,22 +119,23 @@ const SubscriptionManager = () => {
         ) : (
           <div className="space-y-3">
             <div className="text-center">
-              <p className="text-sm text-muted-foreground">
-                Free exports used: {freeExportsUsed}/3
+              <p className="text-lg font-semibold text-foreground mb-2">
+                Subscribe to Get Started
               </p>
-              {freeExportsUsed >= 3 && (
-                <p className="text-sm text-red-600 font-medium mt-1">
-                  Free exports exhausted
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                Professional video splitting requires a subscription
+              </p>
             </div>
             
             <div className="border rounded-lg p-4 bg-gradient-to-br from-purple-50 to-blue-50">
               <h4 className="font-semibold text-lg mb-2">Premium Plan</h4>
               <p className="text-2xl font-bold mb-1">$12.99<span className="text-sm font-normal">/month</span></p>
               <ul className="text-sm space-y-1 mb-3">
-                <li>✓ Unlimited video exports</li>
-                <li>✓ Scene detection</li>
+                <li>✓ Unlimited video uploads</li>
+                <li>✓ AI-powered scene detection</li>
+                <li>✓ Smart duration filtering</li>
+                <li>✓ Intelligent scene shuffling</li>
+                <li>✓ HD video export</li>
                 <li>✓ Priority support</li>
               </ul>
             </div>
