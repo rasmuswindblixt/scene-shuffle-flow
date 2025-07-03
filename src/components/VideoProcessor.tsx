@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -46,7 +46,6 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [currentPreviewIndex, setCurrentPreviewIndex] = useState(-1);
   const [isPreviewingFinal, setIsPreviewingFinal] = useState(false);
   const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null);
-
 
   const startAnalysis = () => {
     setIsAnalyzing(true);
@@ -166,6 +165,15 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
         toast.success("Loading video processing engine...");
         const ffmpeg = new FFmpeg();
         
+        ffmpeg.on('log', ({ message }) => {
+          console.log('FFmpeg log:', message);
+        });
+        
+        ffmpeg.on('progress', ({ progress }) => {
+          console.log('FFmpeg progress:', progress);
+          setExportProgress(Math.max(10, progress * 100)); // Ensure minimum 10% for loading
+        });
+        
         const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
         await ffmpeg.load({
           coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
@@ -173,27 +181,30 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
         });
         
         ffmpegRef.current = ffmpeg;
+        setExportProgress(10);
         toast.success("Processing engine ready!");
       }
       
       const ffmpeg = ffmpegRef.current;
-      
-      // Set up progress monitoring
-      ffmpeg.on('progress', ({ progress }) => {
-        setExportProgress(progress * 100);
-      });
 
       // Write input video file to FFmpeg filesystem
+      toast.success("Preparing video...");
       await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
-      
-      // Build filter complex for concatenating clips
-      const filterParts: string[] = [];
-      const inputParts: string[] = [];
+      setExportProgress(20);
+
+      // Create a simple concatenation list
+      let concatList = '';
+      const segments: string[] = [];
       
       for (let i = 0; i < filteredScenes.length; i++) {
         const scene = filteredScenes[i];
         const startTime = scene.startTime + trimStart;
-        const duration = scene.duration - trimStart - trimEnd;
+        const duration = Math.max(0.1, scene.duration - trimStart - trimEnd);
+        
+        const segmentName = `segment_${i}.mp4`;
+        segments.push(segmentName);
+        
+        toast.success(`Processing scene ${i + 1}/${filteredScenes.length}...`);
         
         // Extract each scene segment
         await ffmpeg.exec([
@@ -201,25 +212,28 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           '-ss', startTime.toString(),
           '-t', duration.toString(),
           '-c', 'copy',
-          `-segment_${i}.mp4`
+          '-avoid_negative_ts', 'make_zero',
+          segmentName
         ]);
         
-        inputParts.push(`-i segment_${i}.mp4`);
-        filterParts.push(`[${i}:v][${i}:a]`);
+        concatList += `file '${segmentName}'\n`;
+        setExportProgress(20 + (i + 1) / filteredScenes.length * 60);
       }
       
-      // Concatenate all segments
-      const filterComplex = `${filterParts.join('')}concat=n=${filteredScenes.length}:v=1:a=1[outv][outa]`;
+      // Write concat list
+      await ffmpeg.writeFile('concat_list.txt', concatList);
       
+      toast.success("Merging scenes...");
+      // Concatenate all segments
       await ffmpeg.exec([
-        ...inputParts.join(' ').split(' '),
-        '-filter_complex', filterComplex,
-        '-map', '[outv]',
-        '-map', '[outa]',
-        '-c:v', 'libx264',
-        '-c:a', 'aac',
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', 'concat_list.txt',
+        '-c', 'copy',
         'output.mp4'
       ]);
+      
+      setExportProgress(90);
       
       // Read the output file
       const outputData = await ffmpeg.readFile('output.mp4');
@@ -234,7 +248,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     } catch (error) {
       console.error('Export error:', error);
       setIsExporting(false);
-      toast.error("Failed to export video");
+      toast.error(`Failed to export video: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -549,7 +563,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
               <div className="space-y-2">
                 <Progress value={exportProgress} className="w-full" />
                 <p className="text-sm text-center text-muted-foreground">
-                  {exportProgress}% complete
+                  {exportProgress.toFixed(0)}% complete
                 </p>
               </div>
             )}
