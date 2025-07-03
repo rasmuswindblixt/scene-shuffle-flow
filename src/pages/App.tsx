@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import VideoUpload from "@/components/VideoUpload";
 import VideoProcessor from "@/components/VideoProcessor";
 import VideoModeSelector from "@/components/VideoModeSelector";
 import DualVideoUpload from "@/components/DualVideoUpload";
 import DualVideoProcessor from "@/components/DualVideoProcessor";
 import Header from "@/components/Header";
+import SubscriptionManager from "@/components/SubscriptionManager";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const App = () => {
   const [mode, setMode] = useState<'select' | 'single' | 'dual'>('select');
@@ -12,6 +16,37 @@ const App = () => {
   const [uploadedVideos, setUploadedVideos] = useState<[File, File] | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoUrls, setVideoUrls] = useState<[string, string] | null>(null);
+  const { user, loading, checkSubscription } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    // Handle Stripe success/cancel redirects
+    if (searchParams.get('success') === 'true') {
+      toast({
+        title: "Payment Successful!",
+        description: "Your subscription is now active. Enjoy unlimited exports!",
+      });
+      checkSubscription();
+      // Clean up URL
+      window.history.replaceState({}, '', '/app');
+    } else if (searchParams.get('canceled') === 'true') {
+      toast({
+        title: "Payment Canceled",
+        description: "Your payment was canceled. You can try again anytime.",
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', '/app');
+    }
+  }, [searchParams, toast, checkSubscription]);
 
   const handleModeSelect = (selectedMode: 'single' | 'dual') => {
     setMode(selectedMode);
@@ -53,12 +88,34 @@ const App = () => {
     setMode('select');
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect to /auth
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="pt-16">
         {mode === 'select' && (
-          <VideoModeSelector onModeSelect={handleModeSelect} />
+          <div className="container mx-auto px-6 py-12">
+            <div className="grid lg:grid-cols-2 gap-8 items-start">
+              <VideoModeSelector onModeSelect={handleModeSelect} />
+              <div className="flex justify-center">
+                <SubscriptionManager />
+              </div>
+            </div>
+          </div>
         )}
         
         {mode === 'single' && !uploadedVideo && (

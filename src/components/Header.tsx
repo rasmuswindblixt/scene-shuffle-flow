@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
+  const { user, signOut } = useAuth();
+  
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
@@ -32,12 +35,25 @@ const Header = () => {
 
         {/* CTA Buttons */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" className="hidden sm:inline-flex">
-            Sign In
-          </Button>
-          <Button variant="hero" asChild>
-            <a href="/app">Get Started</a>
-          </Button>
+          {user ? (
+            <>
+              <span className="text-sm text-foreground/80 hidden sm:inline">
+                {user.email}
+              </span>
+              <Button variant="ghost" onClick={() => signOut()}>
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" asChild className="hidden sm:inline-flex">
+                <a href="/auth">Sign In</a>
+              </Button>
+              <Button variant="hero" asChild>
+                <a href="/app">Get Started</a>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>

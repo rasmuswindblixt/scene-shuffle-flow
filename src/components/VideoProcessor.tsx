@@ -9,6 +9,7 @@ import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import SceneDetector from "@/components/SceneDetector";
 import SceneTimeline from "@/components/SceneTimeline";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VideoProcessorProps {
   videoFile: File;
@@ -198,6 +199,35 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const exportVideo = async () => {
     if (filteredScenes.length === 0) {
       toast.error("No scenes to export");
+      return;
+    }
+
+    // Check export permissions first
+    try {
+      const { data: authData } = await supabase.auth.getSession();
+      if (!authData.session) {
+        toast.error("Please sign in to export videos");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('increment-export', {
+        headers: {
+          Authorization: `Bearer ${authData.session.access_token}`,
+        },
+      });
+
+      if (error) {
+        toast.error(error.message || "Failed to check export permissions");
+        return;
+      }
+
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+    } catch (error) {
+      console.error('Export permission check failed:', error);
+      toast.error("Failed to verify export permissions");
       return;
     }
     
