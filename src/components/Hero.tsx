@@ -29,8 +29,8 @@ const Hero = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="hero" size="lg" className="text-lg px-8 py-6">
-                Start Free Trial
+              <Button variant="hero" size="lg" className="text-lg px-8 py-6" asChild>
+                <a href="/app">Start Free Trial</a>
               </Button>
               <Button variant="outline" size="lg" className="text-lg px-8 py-6">
                 Watch Demo

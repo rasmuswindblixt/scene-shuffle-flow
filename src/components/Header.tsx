@@ -35,8 +35,8 @@ const Header = () => {
           <Button variant="ghost" className="hidden sm:inline-flex">
             Sign In
           </Button>
-          <Button variant="hero">
-            Get Started
+          <Button variant="hero" asChild>
+            <a href="/app">Get Started</a>
           </Button>
         </div>
       </div>

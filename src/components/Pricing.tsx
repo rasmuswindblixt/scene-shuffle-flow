@@ -66,8 +66,8 @@ const Pricing = () => {
               </div>
 
               <div className="pt-6">
-                <Button variant="premium" size="lg" className="w-full text-lg py-6">
-                  Start Free 7-Day Trial
+                <Button variant="premium" size="lg" className="w-full text-lg py-6" asChild>
+                  <a href="/app">Start Free 7-Day Trial</a>
                 </Button>
                 <p className="text-center text-sm text-muted-foreground mt-3">
                   No credit card required for trial

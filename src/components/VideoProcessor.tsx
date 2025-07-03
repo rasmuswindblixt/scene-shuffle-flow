@@ -1,0 +1,327 @@
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
+import SceneDetector from "@/components/SceneDetector";
+import SceneTimeline from "@/components/SceneTimeline";
+import VideoPreview from "@/components/VideoPreview";
+
+interface VideoProcessorProps {
+  videoFile: File;
+  videoUrl: string;
+  onReset: () => void;
+}
+
+interface Scene {
+  id: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  thumbnail?: string;
+  segment: number;
+}
+
+const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) => {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [filteredScenes, setFilteredScenes] = useState<Scene[]>([]);
+  const [currentStep, setCurrentStep] = useState<'upload' | 'analyze' | 'filter' | 'shuffle' | 'export'>('upload');
+  const [minDuration, setMinDuration] = useState(1);
+  const [maxDuration, setMaxDuration] = useState(6);
+  const [segmentLength, setSegmentLength] = useState(120); // 2 minutes in seconds
+
+  const startAnalysis = () => {
+    setIsAnalyzing(true);
+    setCurrentStep('analyze');
+    setAnalysisProgress(0);
+    
+    // Simulate progress
+    const interval = setInterval(() => {
+      setAnalysisProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsAnalyzing(false);
+          setCurrentStep('filter');
+          toast.success("Scene detection completed!");
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 300);
+  };
+
+  const handleScenesDetected = (detectedScenes: Scene[]) => {
+    setScenes(detectedScenes);
+    applyFilters(detectedScenes);
+  };
+
+  const applyFilters = (scenesToFilter: Scene[] = scenes) => {
+    const filtered = scenesToFilter.filter(scene => 
+      scene.duration >= minDuration && scene.duration <= maxDuration
+    );
+    setFilteredScenes(filtered);
+    toast.success(`Filtered to ${filtered.length} scenes`);
+  };
+
+  const shuffleScenes = () => {
+    const shuffled = [...filteredScenes];
+    
+    // Group scenes by segment
+    const segmentGroups: { [key: number]: Scene[] } = {};
+    shuffled.forEach(scene => {
+      if (!segmentGroups[scene.segment]) {
+        segmentGroups[scene.segment] = [];
+      }
+      segmentGroups[scene.segment].push(scene);
+    });
+
+    // Shuffle within each segment
+    Object.keys(segmentGroups).forEach(segment => {
+      const segmentScenes = segmentGroups[parseInt(segment)];
+      for (let i = segmentScenes.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [segmentScenes[i], segmentScenes[j]] = [segmentScenes[j], segmentScenes[i]];
+      }
+    });
+
+    // Flatten back to single array
+    const result = Object.values(segmentGroups).flat();
+    setFilteredScenes(result);
+    setCurrentStep('shuffle');
+    toast.success("Scenes shuffled successfully!");
+  };
+
+  return (
+    <div className="container mx-auto px-6 py-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Video Processing</h1>
+          <p className="text-muted-foreground">
+            File: {videoFile.name} • Size: {(videoFile.size / 1024 / 1024).toFixed(1)}MB
+          </p>
+        </div>
+        <Button variant="outline" onClick={onReset}>
+          Upload New Video
+        </Button>
+      </div>
+
+      {/* Progress Steps */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3">
+            <span className="text-2xl">🎬</span>
+            Processing Pipeline
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between mb-4">
+            {[
+              { key: 'upload', label: 'Upload', icon: '📁' },
+              { key: 'analyze', label: 'Analyze', icon: '🔍' },
+              { key: 'filter', label: 'Filter', icon: '🎯' },
+              { key: 'shuffle', label: 'Shuffle', icon: '🔀' },
+              { key: 'export', label: 'Export', icon: '📤' }
+            ].map((step, index) => (
+              <div key={step.key} className="flex items-center">
+                <div className={`
+                  w-10 h-10 rounded-full flex items-center justify-center font-semibold
+                  ${currentStep === step.key ? 'bg-primary text-primary-foreground' :
+                    ['upload', 'analyze'].includes(step.key) && currentStep !== 'upload' ? 'bg-primary/20 text-primary' :
+                    'bg-secondary text-secondary-foreground'}
+                `}>
+                  {step.icon}
+                </div>
+                <span className={`ml-2 font-medium ${
+                  currentStep === step.key ? 'text-primary' : 'text-muted-foreground'
+                }`}>
+                  {step.label}
+                </span>
+                {index < 4 && (
+                  <div className={`w-8 h-0.5 mx-4 ${
+                    ['upload', 'analyze'].includes(step.key) && currentStep !== 'upload' ? 'bg-primary' : 'bg-border'
+                  }`}></div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          {isAnalyzing && (
+            <div className="space-y-2">
+              <Progress value={analysisProgress} className="w-full" />
+              <p className="text-sm text-muted-foreground text-center">
+                Analyzing video for scene changes... {analysisProgress}%
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Video Preview */}
+          <VideoPreview videoUrl={videoUrl} />
+
+          {/* Scene Detection */}
+          {currentStep === 'upload' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Start Scene Detection</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  Click below to start analyzing your video for scene changes. 
+                  This process will identify cuts and transitions automatically.
+                </p>
+                <Button variant="hero" size="lg" onClick={startAnalysis}>
+                  Analyze Video for Scenes
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Scene Detection Component */}
+          {(isAnalyzing || scenes.length > 0) && (
+            <SceneDetector
+              videoUrl={videoUrl}
+              onScenesDetected={handleScenesDetected}
+              isAnalyzing={isAnalyzing}
+              segmentLength={segmentLength}
+            />
+          )}
+
+          {/* Scene Timeline */}
+          {scenes.length > 0 && (
+            <SceneTimeline 
+              scenes={currentStep === 'filter' || currentStep === 'shuffle' ? filteredScenes : scenes}
+              videoUrl={videoUrl}
+            />
+          )}
+        </div>
+
+        {/* Controls Sidebar */}
+        <div className="space-y-6">
+          {/* Filter Controls */}
+          {scenes.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Scene Filters</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Duration Range: {minDuration}s - {maxDuration}s
+                  </label>
+                  <div className="space-y-2">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="10"
+                      step="0.5"
+                      value={minDuration}
+                      onChange={(e) => setMinDuration(Number(e.target.value))}
+                      className="w-full"
+                    />
+                    <input
+                      type="range"
+                      min="1"
+                      max="30"
+                      step="1"
+                      value={maxDuration}
+                      onChange={(e) => setMaxDuration(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Segment Length: {segmentLength}s
+                  </label>
+                  <input
+                    type="range"
+                    min="60"
+                    max="300"
+                    step="30"
+                    value={segmentLength}
+                    onChange={(e) => setSegmentLength(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+
+                <Button onClick={() => applyFilters()} className="w-full">
+                  Apply Filters
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Shuffle Controls */}
+          {filteredScenes.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Scene Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  <p>• {scenes.length} total scenes detected</p>
+                  <p>• {filteredScenes.length} scenes after filtering</p>
+                </div>
+                
+                <Button variant="hero" onClick={shuffleScenes} className="w-full">
+                  Shuffle Scenes
+                </Button>
+                
+                <Button variant="outline" className="w-full">
+                  Preview Final Video
+                </Button>
+                
+                <Button variant="premium" className="w-full">
+                  Export Video
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Stats */}
+          {scenes.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Processing Stats</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2">
+                <div className="flex justify-between">
+                  <span>Total Scenes:</span>
+                  <span className="font-medium">{scenes.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Filtered Scenes:</span>
+                  <span className="font-medium">{filteredScenes.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Segments:</span>
+                  <span className="font-medium">
+                    {Math.max(...scenes.map(s => s.segment)) + 1}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Avg Scene Duration:</span>
+                  <span className="font-medium">
+                    {scenes.length > 0 ? 
+                      (scenes.reduce((acc, s) => acc + s.duration, 0) / scenes.length).toFixed(1)
+                      : 0}s
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default VideoProcessor;
