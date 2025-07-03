@@ -39,8 +39,8 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
   const [combinedScenes, setCombinedScenes] = useState<Scene[]>([]);
   const [filteredScenes, setFilteredScenes] = useState<Scene[]>([]);
   const [currentStep, setCurrentStep] = useState<'upload' | 'analyze' | 'filter' | 'shuffle' | 'export'>('upload');
-  const [minDuration, setMinDuration] = useState(1);
-  const [maxDuration, setMaxDuration] = useState(6);
+  const [minDuration, setMinDuration] = useState(1.0);
+  const [maxDuration, setMaxDuration] = useState(6.9);
   const [minFinalClipLength, setMinFinalClipLength] = useState(0.5);
   const [numberOfSegments, setNumberOfSegments] = useState(5);
   const [trimStart, setTrimStart] = useState(0);
@@ -563,31 +563,31 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
                 <CardTitle>Scene Filters</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Duration Range: {minDuration}s - {maxDuration}s
-                  </label>
-                  <div className="space-y-2">
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="10"
-                      step="0.5"
-                      value={minDuration}
-                      onChange={(e) => setMinDuration(Number(e.target.value))}
-                      className="w-full"
-                    />
-                    <input
-                      type="range"
-                      min="1"
-                      max="30"
-                      step="1"
-                      value={maxDuration}
-                      onChange={(e) => setMaxDuration(Number(e.target.value))}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
+                 <div>
+                   <label className="text-sm font-medium mb-2 block">
+                     Duration Range: {minDuration.toFixed(1)}s - {maxDuration.toFixed(1)}s
+                   </label>
+                   <div className="space-y-2">
+                     <input
+                       type="range"
+                       min="0.5"
+                       max="10"
+                       step="0.1"
+                       value={minDuration}
+                       onChange={(e) => setMinDuration(Number(e.target.value))}
+                       className="w-full"
+                     />
+                     <input
+                       type="range"
+                       min="1"
+                       max="30"
+                       step="0.1"
+                       value={maxDuration}
+                       onChange={(e) => setMaxDuration(Number(e.target.value))}
+                       className="w-full"
+                     />
+                   </div>
+                 </div>
                 
                 <div>
                   <label className="text-sm font-medium mb-2 block">

@@ -39,8 +39,8 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [filteredScenes, setFilteredScenes] = useState<Scene[]>([]);
   const [currentStep, setCurrentStep] = useState<'upload' | 'analyze' | 'filter' | 'shuffle' | 'export'>('upload');
-  const [minDuration, setMinDuration] = useState(1);
-  const [maxDuration, setMaxDuration] = useState(6);
+  const [minDuration, setMinDuration] = useState(1.0);
+  const [maxDuration, setMaxDuration] = useState(6.9);
   const [minFinalClipLength, setMinFinalClipLength] = useState(0.5);
   const [segmentLength, setSegmentLength] = useState(120); // 2 minutes in seconds
   const [trimStart, setTrimStart] = useState(0);
@@ -55,6 +55,9 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [exportLogs, setExportLogs] = useState<string[]>([]);
   const [originalVideoQuality, setOriginalVideoQuality] = useState<{width: number, height: number} | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<QualityOption | null>(null);
+  const [exportStartTime, setExportStartTime] = useState<number | null>(null);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [estimatedTimeLeft, setEstimatedTimeLeft] = useState(0);
 
   const qualityOptions: QualityOption[] = [
     { label: "420p", height: 420, width: 747 },
@@ -206,6 +209,24 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     setExportProgress(0);
     setExportLogs([]);
     setCurrentStep('export');
+    setExportStartTime(Date.now());
+    setTimeElapsed(0);
+    setEstimatedTimeLeft(0);
+    
+    // Set up time tracking interval
+    const timeTrackingInterval = setInterval(() => {
+      if (exportStartTime) {
+        const elapsed = (Date.now() - exportStartTime) / 1000;
+        setTimeElapsed(elapsed);
+        
+        // Calculate estimated time left based on progress
+        if (exportProgress > 0) {
+          const totalEstimatedTime = (elapsed / exportProgress) * 100;
+          const timeLeft = Math.max(0, totalEstimatedTime - elapsed);
+          setEstimatedTimeLeft(timeLeft);
+        }
+      }
+    }, 1000);
     
     try {
       addLog("Starting browser-native video export...");
@@ -300,6 +321,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           resolve();
         };
       });
+      clearInterval(timeTrackingInterval);
       setIsExporting(false);
       setExportCompleted(true);
       setExportProgress(100);
@@ -309,6 +331,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     } catch (error) {
       console.error('Export error:', error);
       addLog(`ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      clearInterval(timeTrackingInterval);
       setIsExporting(false);
       toast.error(`Failed to export video: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -471,31 +494,31 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                 <CardTitle>Scene Filters</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Duration Range: {minDuration}s - {maxDuration}s
-                  </label>
-                  <div className="space-y-2">
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="10"
-                      step="0.5"
-                      value={minDuration}
-                      onChange={(e) => setMinDuration(Number(e.target.value))}
-                      className="w-full"
-                    />
-                    <input
-                      type="range"
-                      min="1"
-                      max="30"
-                      step="1"
-                      value={maxDuration}
-                      onChange={(e) => setMaxDuration(Number(e.target.value))}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
+                 <div>
+                   <label className="text-sm font-medium mb-2 block">
+                     Duration Range: {minDuration.toFixed(1)}s - {maxDuration.toFixed(1)}s
+                   </label>
+                   <div className="space-y-2">
+                     <input
+                       type="range"
+                       min="0.5"
+                       max="10"
+                       step="0.1"
+                       value={minDuration}
+                       onChange={(e) => setMinDuration(Number(e.target.value))}
+                       className="w-full"
+                     />
+                     <input
+                       type="range"
+                       min="1"
+                       max="30"
+                       step="0.1"
+                       value={maxDuration}
+                       onChange={(e) => setMaxDuration(Number(e.target.value))}
+                       className="w-full"
+                     />
+                   </div>
+                 </div>
                 
                 <div>
                   <label className="text-sm font-medium mb-2 block">
@@ -665,9 +688,13 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
             {isExporting && (
               <div className="space-y-2">
                 <Progress value={exportProgress} className="w-full" />
-                <p className="text-sm text-center text-muted-foreground">
-                  {exportProgress.toFixed(0)}% complete
-                </p>
+                <div className="text-sm text-center text-muted-foreground space-y-1">
+                  <p>{exportProgress.toFixed(0)}% complete</p>
+                  <p>Time elapsed: {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toFixed(0).padStart(2, '0')}</p>
+                  {estimatedTimeLeft > 0 && (
+                    <p>Estimated time left: {Math.floor(estimatedTimeLeft / 60)}:{(estimatedTimeLeft % 60).toFixed(0).padStart(2, '0')}</p>
+                  )}
+                </div>
                 
                 {/* Export Logs */}
                 <div className="mt-4 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
