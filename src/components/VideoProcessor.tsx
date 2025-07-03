@@ -46,13 +46,17 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [currentPreviewIndex, setCurrentPreviewIndex] = useState(-1);
   const [isPreviewingFinal, setIsPreviewingFinal] = useState(false);
   const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null);
+  const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
+  const [ffmpegLoading, setFfmpegLoading] = useState(false);
 
   useEffect(() => {
     const loadFFmpeg = async () => {
-      if (!ffmpegRef.current) {
+      if (!ffmpegRef.current && !ffmpegLoading) {
+        setFfmpegLoading(true);
         const ffmpeg = new FFmpeg();
         
         try {
+          console.log('Loading FFmpeg...');
           const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
           await ffmpeg.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
@@ -60,15 +64,20 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           });
           
           ffmpegRef.current = ffmpeg;
+          setFfmpegLoaded(true);
+          setFfmpegLoading(false);
+          console.log('FFmpeg loaded successfully');
+          toast.success("Video processing engine ready!");
         } catch (error) {
           console.error('Error loading FFmpeg:', error);
-          toast.error("Failed to load video processing engine");
+          setFfmpegLoading(false);
+          toast.error("Failed to load video processing engine. Please refresh the page and try again.");
         }
       }
     };
     
     loadFFmpeg();
-  }, []);
+  }, [ffmpegLoading]);
 
   const startAnalysis = () => {
     setIsAnalyzing(true);
@@ -503,8 +512,13 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                   Preview Final Video
                 </Button>
                 
-                <Button variant="premium" onClick={exportVideo} className="w-full">
-                  Export Video
+                <Button 
+                  variant="premium" 
+                  onClick={exportVideo} 
+                  className="w-full"
+                  disabled={!ffmpegLoaded || ffmpegLoading}
+                >
+                  {ffmpegLoading ? "Loading Engine..." : ffmpegLoaded ? "Export Video" : "Engine Loading..."}
                 </Button>
               </CardContent>
             </Card>
