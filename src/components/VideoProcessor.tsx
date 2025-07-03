@@ -186,8 +186,28 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           addLog(`Processing: ${progressPercent.toFixed(1)}%`);
         });
         
-        addLog("Loading FFmpeg core files...");
-        await ffmpeg.load();
+        addLog("Loading FFmpeg core files from local bundle...");
+        
+        // Use a timeout to prevent infinite loading
+        const loadTimeout = setTimeout(() => {
+          addLog("ERROR: FFmpeg loading timed out after 30 seconds");
+          toast.error("FFmpeg loading timed out. Please try again.");
+          setIsExporting(false);
+        }, 30000);
+        
+        try {
+          await ffmpeg.load({
+            coreURL: new URL('/node_modules/@ffmpeg/core/dist/umd/ffmpeg-core.js', import.meta.url).href,
+            wasmURL: new URL('/node_modules/@ffmpeg/core/dist/umd/ffmpeg-core.wasm', import.meta.url).href,
+          });
+          clearTimeout(loadTimeout);
+        } catch (error) {
+          clearTimeout(loadTimeout);
+          addLog(`ERROR loading FFmpeg: ${error}`);
+          // Fallback to CDN if local files fail
+          addLog("Falling back to CDN...");
+          await ffmpeg.load();
+        }
         
         ffmpegRef.current = ffmpeg;
         setExportProgress(10);
