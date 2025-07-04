@@ -15,6 +15,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   checkSubscription: () => Promise<void>;
   checkSubscriptionDirect: () => Promise<void>;
+  updateFreeExportsUsed: (count: number) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -99,6 +100,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateFreeExportsUsed = (count: number) => {
+    console.log('Updating free exports used to:', count);
+    setFreeExportsUsed(count);
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -174,6 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     checkSubscription,
     checkSubscriptionDirect,
+    updateFreeExportsUsed,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
