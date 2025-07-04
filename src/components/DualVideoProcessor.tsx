@@ -8,6 +8,7 @@ import SceneDetector from "@/components/SceneDetector";
 import SceneTimeline from "@/components/SceneTimeline";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DualVideoProcessorProps {
   videoFiles: [File, File];
@@ -32,6 +33,7 @@ interface Scene {
 }
 
 const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcessorProps) => {
+  const { checkSubscription } = useAuth();
   const videoPreviewRef = useRef<VideoPreviewRef>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -249,6 +251,9 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
           return;
         }
         console.log('[CREDIT] New subscriber created:', newSubscriber);
+        
+        // Refresh the subscription data in the UI
+        setTimeout(() => checkSubscription(), 500);
       } else if (!subscriber.subscribed) {
         // Increment export count for non-subscribers
         console.log('[CREDIT] Updating existing subscriber, incrementing from', subscriber.free_exports_used, 'to', subscriber.free_exports_used + 1);
@@ -268,6 +273,9 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
         }
         console.log('[CREDIT] Subscriber updated successfully:', updatedSubscriber);
         toast.success(`Export started! ${3 - updatedSubscriber.free_exports_used} exports remaining`);
+        
+        // Refresh the subscription data in the UI
+        setTimeout(() => checkSubscription(), 500);
       } else {
         console.log('[CREDIT] User is subscribed, no credit needed');
         toast.success("Export started!");
