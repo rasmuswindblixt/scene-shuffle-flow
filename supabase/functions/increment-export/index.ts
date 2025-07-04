@@ -7,123 +7,113 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log('[INCREMENT-EXPORT] Request received:', {
-    method: req.method,
-    url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
-  });
+  console.log('[INCREMENT-EXPORT] Request received:', req.method, req.url);
 
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     console.log('[INCREMENT-EXPORT] Handling CORS preflight');
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
-  );
-
   try {
-    console.log('[INCREMENT-EXPORT] Function started');
-    
+    console.log('[INCREMENT-EXPORT] Starting function execution');
+
+    // Get auth header
     const authHeader = req.headers.get("Authorization");
+    console.log('[INCREMENT-EXPORT] Auth header present:', !!authHeader);
+
     if (!authHeader) {
-      console.log('[INCREMENT-EXPORT] No authorization header provided');
-      return new Response(JSON.stringify({ error: "No authorization header provided" }), {
+      console.log('[INCREMENT-EXPORT] No auth header provided');
+      return new Response(JSON.stringify({ error: "No authorization header" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       });
     }
 
+    // Create Supabase client with service role (bypasses RLS)
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+
+    // Validate user token
     const token = authHeader.replace("Bearer ", "");
-    console.log('[INCREMENT-EXPORT] Token extracted, length:', token.length);
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
     
-    // Use the service role client to validate the user token
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    console.log('[INCREMENT-EXPORT] Auth result:', { 
-      hasUser: !!userData?.user, 
-      userEmail: userData?.user?.email,
-      error: userError?.message 
+    console.log('[INCREMENT-EXPORT] User validation:', {
+      hasUser: !!user,
+      email: user?.email,
+      error: userError?.message
     });
-    
-    if (userError || !userData?.user?.email) {
-      console.log('[INCREMENT-EXPORT] Authentication failed:', userError?.message);
-      return new Response(JSON.stringify({ error: "Authentication failed" }), {
+
+    if (userError || !user?.email) {
+      console.log('[INCREMENT-EXPORT] User validation failed');
+      return new Response(JSON.stringify({ error: "Invalid user token" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       });
     }
-    
-    const user = userData.user;
-    console.log('[INCREMENT-EXPORT] User authenticated:', { userId: user.id, email: user.email });
 
-    // Get current subscriber data
-    console.log('[INCREMENT-EXPORT] Fetching subscriber data');
-    const { data: subscriber, error: selectError } = await supabaseClient
+    console.log('[INCREMENT-EXPORT] User validated:', user.email);
+
+    // Check/create subscriber record
+    let { data: subscriber, error: selectError } = await supabaseAdmin
       .from("subscribers")
       .select("*")
       .eq("email", user.email)
       .maybeSingle();
 
     console.log('[INCREMENT-EXPORT] Subscriber query result:', {
-      hasSubscriber: !!subscriber,
-      subscriberData: subscriber,
+      found: !!subscriber,
       error: selectError?.message
     });
 
     if (selectError) {
-      console.log('[INCREMENT-EXPORT] Error fetching subscriber:', selectError);
-      return new Response(JSON.stringify({ error: `Error fetching subscriber: ${selectError.message}` }), {
+      console.log('[INCREMENT-EXPORT] Database error:', selectError);
+      return new Response(JSON.stringify({ error: "Database error" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
       });
     }
 
-    // If no subscriber record exists, create one
+    // Create subscriber if doesn't exist
     if (!subscriber) {
-      console.log('[INCREMENT-EXPORT] Creating new subscriber record');
-      const { data: newSubscriber, error: insertError } = await supabaseClient.from("subscribers").insert({
-        email: user.email,
-        user_id: user.id,
-        subscribed: false,
-        free_exports_used: 1,
-        updated_at: new Date().toISOString(),
-      }).select().single();
-      
-      console.log('[INCREMENT-EXPORT] Insert result:', {
-        success: !!newSubscriber,
-        error: insertError?.message
-      });
+      console.log('[INCREMENT-EXPORT] Creating new subscriber');
+      const { data: newSubscriber, error: insertError } = await supabaseAdmin
+        .from("subscribers")
+        .insert({
+          email: user.email,
+          user_id: user.id,
+          subscribed: false,
+          free_exports_used: 1,
+        })
+        .select()
+        .single();
 
       if (insertError) {
-        console.log('[INCREMENT-EXPORT] Error creating subscriber:', insertError);
-        return new Response(JSON.stringify({ error: `Error creating subscriber: ${insertError.message}` }), {
+        console.log('[INCREMENT-EXPORT] Insert error:', insertError);
+        return new Response(JSON.stringify({ error: "Failed to create subscriber record" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 500,
         });
       }
-      
-      console.log('[INCREMENT-EXPORT] New subscriber created, returning success');
-      return new Response(JSON.stringify({ 
-        success: true, 
+
+      console.log('[INCREMENT-EXPORT] New subscriber created');
+      return new Response(JSON.stringify({
+        success: true,
         free_exports_used: 1,
-        subscribed: false 
+        subscribed: false
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
-    // Check if user has subscription or free exports remaining
-    console.log('[INCREMENT-EXPORT] Checking export limits:', { 
-      subscribed: subscriber.subscribed, 
-      freeExportsUsed: subscriber.free_exports_used 
-    });
-    
+    // Check export limit
     if (!subscriber.subscribed && subscriber.free_exports_used >= 3) {
-      console.log('[INCREMENT-EXPORT] Free export limit reached');
-      return new Response(JSON.stringify({ 
+      console.log('[INCREMENT-EXPORT] Export limit reached');
+      return new Response(JSON.stringify({
         error: "Free export limit reached. Please subscribe to continue.",
         free_exports_used: subscriber.free_exports_used,
         subscribed: false
@@ -134,50 +124,41 @@ serve(async (req) => {
     }
 
     // Increment export count for non-subscribers
+    let newExportCount = subscriber.free_exports_used;
     if (!subscriber.subscribed) {
-      console.log('[INCREMENT-EXPORT] Incrementing export count for non-subscriber');
-      const { data: updatedSubscriber, error: updateError } = await supabaseClient
+      console.log('[INCREMENT-EXPORT] Incrementing export count');
+      const { error: updateError } = await supabaseAdmin
         .from("subscribers")
-        .update({ 
+        .update({
           free_exports_used: subscriber.free_exports_used + 1,
-          updated_at: new Date().toISOString()
         })
-        .eq("email", user.email)
-        .select()
-        .single();
-
-      console.log('[INCREMENT-EXPORT] Update result:', {
-        success: !!updatedSubscriber,
-        newCount: updatedSubscriber?.free_exports_used,
-        error: updateError?.message
-      });
+        .eq("email", user.email);
 
       if (updateError) {
-        console.log('[INCREMENT-EXPORT] Error updating export count:', updateError);
-        return new Response(JSON.stringify({ error: `Error updating export count: ${updateError.message}` }), {
+        console.log('[INCREMENT-EXPORT] Update error:', updateError);
+        return new Response(JSON.stringify({ error: "Failed to update export count" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 500,
         });
       }
+      newExportCount = subscriber.free_exports_used + 1;
     }
 
-    console.log('[INCREMENT-EXPORT] Export successful');
-    const finalResponse = { 
+    console.log('[INCREMENT-EXPORT] Success! Export count:', newExportCount);
+    return new Response(JSON.stringify({
       success: true,
-      free_exports_used: subscriber.subscribed ? subscriber.free_exports_used : subscriber.free_exports_used + 1,
+      free_exports_used: newExportCount,
       subscribed: subscriber.subscribed
-    };
-    
-    console.log('[INCREMENT-EXPORT] Returning response:', finalResponse);
-    
-    return new Response(JSON.stringify(finalResponse), {
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
+
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[INCREMENT-EXPORT] FATAL ERROR:", errorMessage, error);
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    console.error('[INCREMENT-EXPORT] Fatal error:', error);
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : "Unknown error" 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
