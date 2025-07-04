@@ -34,7 +34,7 @@ interface Scene {
 }
 
 const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) => {
-  const { checkSubscription, checkSubscriptionDirect, updateFreeExportsUsed } = useAuth();
+  const { checkSubscription, checkSubscriptionDirect, updateFreeExportsUsed, subscribed, freeExportsUsed } = useAuth();
   const videoPreviewRef = useRef<VideoPreviewRef>(null);
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -58,6 +58,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [exportLogs, setExportLogs] = useState<string[]>([]);
   const [originalVideoQuality, setOriginalVideoQuality] = useState<{width: number, height: number} | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<QualityOption | null>(null);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const qualityOptions: QualityOption[] = [
     { label: "420p", height: 420, width: 747 },
@@ -279,6 +280,10 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   };
 
   const exportVideo = async () => {
+    if (!subscribed && freeExportsUsed >= 3) {
+      setShowUpgradeDialog(true);
+      return;
+    }
     console.log('[EXPORT] Export button clicked');
     if (filteredScenes.length === 0) {
       toast.error("No scenes to export");
@@ -403,6 +408,9 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       setExportProgress(100);
       addLog("Export completed successfully!");
       toast.success("Video exported successfully!");
+      
+      // Lägg till: Hämta senaste exportvärde från backend
+      await checkSubscription();
       
     } catch (error) {
       console.error('Export error:', error);
@@ -708,7 +716,6 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                 
                 <Button variant="premium" onClick={() => {
                   console.log('EXPORT BUTTON CLICKED!');
-                  alert('Export button clicked - check console');
                   exportVideo();
                 }} className="w-full">
                   Export Video
@@ -806,6 +813,49 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent className="max-w-md p-0 overflow-visible">
+          <div className="relative rounded-2xl border-2 border-primary/20 shadow-glow bg-gradient-to-br from-card via-card to-primary/5 overflow-visible pt-8">
+            {/* Limited offer badge */}
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="bg-red-500 text-white px-6 py-2 rounded-full text-sm font-semibold animate-pulse">
+                🔥 Limited Time Offer
+              </div>
+            </div>
+            <div className="text-center pt-8 pb-4 px-6">
+              <div className="mb-4 flex flex-col items-center">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-100 text-yellow-800 text-sm font-semibold mb-2">
+                  ⚠️ You have used all your free credits
+                </span>
+                <span className="text-sm text-muted-foreground">To continue exporting, please upgrade to Pro.</span>
+              </div>
+              <h2 className="text-3xl font-bold mb-2">Upgrade to Pro</h2>
+              <p className="text-lg text-muted-foreground mb-4">Unlock unlimited exports and all premium features</p>
+              <div className="space-y-2 mb-4">
+                <div className="text-2xl text-muted-foreground line-through">$34.99/month</div>
+                <div className="text-5xl font-bold text-red-500">$12.99<span className="text-xl text-muted-foreground font-normal">/month</span></div>
+                <div className="text-sm font-semibold text-red-500">Save 63% - Limited Time Only!</div>
+              </div>
+              <div className="text-sm text-muted-foreground mb-6">Billed monthly • Cancel anytime</div>
+              <ul className="text-left text-base space-y-2 mb-6 max-w-xs mx-auto">
+                <li className="flex items-center gap-2"><span className="text-primary">•</span> Unlimited video uploads</li>
+                <li className="flex items-center gap-2"><span className="text-primary">•</span> AI-powered scene detection</li>
+                <li className="flex items-center gap-2"><span className="text-primary">•</span> Smart duration filtering</li>
+                <li className="flex items-center gap-2"><span className="text-primary">•</span> Intelligent scene shuffling</li>
+                <li className="flex items-center gap-2"><span className="text-primary">•</span> Real-time preview</li>
+                <li className="flex items-center gap-2"><span className="text-primary">•</span> HD video export</li>
+                <li className="flex items-center gap-2"><span className="text-primary">•</span> Priority support</li>
+                <li className="flex items-center gap-2"><span className="text-primary">•</span> No watermarks</li>
+              </ul>
+              <a href="/app#pricing" className="block">
+                <button className="w-full bg-gradient-primary text-white text-lg font-bold py-4 rounded-xl shadow transition hover:opacity-90">Upgrade Now</button>
+              </a>
+              <p className="text-center text-xs text-muted-foreground mt-4">Secure payment • Instant access</p>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

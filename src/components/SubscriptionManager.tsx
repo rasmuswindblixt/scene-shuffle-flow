@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,14 +8,26 @@ import { useToast } from '@/hooks/use-toast';
 import { Crown, CheckCircle2 } from 'lucide-react';
 
 const SubscriptionManager = () => {
-  const { user, session, subscribed, freeExportsUsed, subscriptionTier, subscriptionEnd, checkSubscription } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { user, session, subscribed, freeExportsUsed, subscriptionTier, subscriptionEnd, checkSubscription, loading } = useAuth();
+  const [loadingButton, setLoadingButton] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    checkSubscription();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-md flex items-center justify-center py-12">
+        <span className="text-muted-foreground text-sm">Loading subscription status...</span>
+      </div>
+    );
+  }
 
   const handleSubscribe = async () => {
     if (!session) return;
     
-    setLoading(true);
+    setLoadingButton(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         headers: {
@@ -37,14 +49,14 @@ const SubscriptionManager = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setLoadingButton(false);
     }
   };
 
   const handleManageSubscription = async () => {
     if (!session) return;
     
-    setLoading(true);
+    setLoadingButton(true);
     try {
       const { data, error } = await supabase.functions.invoke('customer-portal', {
         headers: {
@@ -66,7 +78,7 @@ const SubscriptionManager = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setLoadingButton(false);
     }
   };
 
@@ -109,11 +121,11 @@ const SubscriptionManager = () => {
             
             <Button 
               onClick={handleManageSubscription}
-              disabled={loading}
+              disabled={loadingButton}
               variant="outline"
               className="w-full"
             >
-              {loading ? 'Loading...' : 'Manage Subscription'}
+              {loadingButton ? 'Loading...' : 'Manage Subscription'}
             </Button>
           </div>
         ) : (
@@ -123,17 +135,17 @@ const SubscriptionManager = () => {
                 Free Plan
               </p>
               <p className="text-sm text-muted-foreground mb-3">
-                You have {3 - freeExportsUsed} free exports remaining
+                You have {Math.max(0, 3 - freeExportsUsed)} free exports remaining
               </p>
               <div className="bg-muted rounded-lg p-3 mb-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium">Free Exports</span>
-                  <span className="text-sm font-bold">{freeExportsUsed}/3</span>
+                  <span className="text-sm font-bold">{Math.min(3, freeExportsUsed)}/3</span>
                 </div>
                 <div className="w-full bg-background rounded-full h-2">
                   <div 
                     className="bg-primary h-2 rounded-full transition-all duration-300" 
-                    style={{ width: `${(freeExportsUsed / 3) * 100}%` }}
+                    style={{ width: `${(Math.min(3, freeExportsUsed) / 3) * 100}%` }}
                   ></div>
                 </div>
               </div>
@@ -154,11 +166,11 @@ const SubscriptionManager = () => {
             
             <Button 
               onClick={handleSubscribe}
-              disabled={loading}
+              disabled={loadingButton}
               variant="hero"
               className="w-full"
             >
-              {loading ? 'Loading...' : 'Subscribe Now'}
+              {loadingButton ? 'Loading...' : 'Subscribe Now'}
             </Button>
           </div>
         )}

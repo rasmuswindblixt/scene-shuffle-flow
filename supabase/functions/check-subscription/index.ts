@@ -50,6 +50,16 @@ serve(async (req) => {
     
     if (customers.data.length === 0) {
       logStep("No customer found, updating unsubscribed state");
+
+      // Hämta nuvarande free_exports_used från databasen
+      const { data: existingSubscriber } = await supabaseClient
+        .from("subscribers")
+        .select("free_exports_used")
+        .eq("email", user.email)
+        .single();
+
+      const freeExportsUsed = existingSubscriber?.free_exports_used || 0;
+
       await supabaseClient.from("subscribers").upsert({
         email: user.email,
         user_id: user.id,
@@ -57,10 +67,11 @@ serve(async (req) => {
         subscribed: false,
         subscription_tier: null,
         subscription_end: null,
-        free_exports_used: 0,
+        free_exports_used: freeExportsUsed,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'email' });
-      return new Response(JSON.stringify({ subscribed: false, free_exports_used: 0 }), {
+
+      return new Response(JSON.stringify({ subscribed: false, free_exports_used: freeExportsUsed }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -76,7 +87,7 @@ serve(async (req) => {
     });
     const hasActiveSub = subscriptions.data.length > 0;
     let subscriptionTier = "Premium";
-    let subscriptionEnd = null;
+    let subscriptionEnd: string | null = null;
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];

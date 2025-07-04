@@ -33,7 +33,7 @@ interface Scene {
 }
 
 const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcessorProps) => {
-  const { checkSubscription, checkSubscriptionDirect, updateFreeExportsUsed } = useAuth();
+  const { checkSubscription, checkSubscriptionDirect, updateFreeExportsUsed, subscribed, freeExportsUsed } = useAuth();
   const videoPreviewRef = useRef<VideoPreviewRef>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -57,6 +57,7 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
   const [selectedQuality, setSelectedQuality] = useState<QualityOption | null>(null);
   const [currentPreviewVideo, setCurrentPreviewVideo] = useState<0 | 1>(0);
   const [analyzingVideo, setAnalyzingVideo] = useState<0 | 1>(0);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const qualityOptions: QualityOption[] = [
     { label: "420p", height: 420, width: 747 },
@@ -288,6 +289,10 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
   };
 
   const exportVideo = async () => {
+    if (!subscribed && freeExportsUsed >= 3) {
+      setShowUpgradeDialog(true);
+      return;
+    }
     if (filteredScenes.length === 0) {
       toast.error("No scenes to export");
       return;
@@ -418,6 +423,9 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
       setExportProgress(100);
       addLog("Dual video export completed successfully!");
       toast.success("Dual video exported successfully!");
+      
+      // Lägg till: Hämta senaste exportvärde från backend
+      await checkSubscription();
       
     } catch (error) {
       console.error('Export error:', error);
@@ -830,6 +838,18 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Du har förbrukat dina gratis exports</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>För att fortsätta exportera behöver du uppgradera till Premium.</p>
+            <a href="/app#pricing" className="btn btn-primary w-full">Uppgradera nu</a>
           </div>
         </DialogContent>
       </Dialog>

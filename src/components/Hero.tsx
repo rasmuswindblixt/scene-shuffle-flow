@@ -4,16 +4,16 @@ import heroImage from "@/assets/hero-video-splitter.jpg";
 
 const Hero = () => {
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-background via-accent/20 to-background">
+    <div className="relative py-12 md:py-24 flex items-center justify-center overflow-hidden bg-gradient-to-br from-background via-accent/20 to-background">
       {/* Background decoration */}
       <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
       <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-primary rounded-full blur-3xl opacity-20"></div>
       <div className="absolute bottom-20 right-10 w-48 h-48 bg-primary-glow rounded-full blur-3xl opacity-15"></div>
       
       <div className="container mx-auto px-6 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+        <div className="grid lg:grid-cols-2 gap-8 items-center">
           {/* Content */}
-          <div className="space-y-8">
+          <div className="space-y-6">
             <div className="space-y-4">
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-accent text-accent-foreground text-sm font-medium">
                 🎬 Video Editing Made Simple

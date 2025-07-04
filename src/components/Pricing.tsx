@@ -20,7 +20,7 @@ const Pricing = () => {
         </div>
 
         <div className="max-w-md mx-auto">
-          <Card className="border-2 border-primary/20 shadow-glow bg-gradient-to-br from-card via-card to-primary/5 relative overflow-hidden">
+          <Card className="border-2 border-primary/20 shadow-glow bg-gradient-to-br from-card via-card to-primary/5 relative overflow-visible pt-8">
             {/* Limited offer badge */}
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
               <div className="bg-red-500 text-white px-6 py-2 rounded-full text-sm font-semibold animate-pulse">
@@ -28,7 +28,7 @@ const Pricing = () => {
               </div>
             </div>
 
-            <CardHeader className="text-center pt-12 pb-8">
+            <CardHeader className="text-center pt-8 pb-8">
               <CardTitle className="text-3xl font-bold">Pro Plan</CardTitle>
               <CardDescription className="text-lg">
                 Perfect for content creators and video editors
