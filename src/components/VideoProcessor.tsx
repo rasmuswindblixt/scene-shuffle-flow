@@ -285,6 +285,11 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
 
       // Export permission check passed, proceed with export
       console.log('[EXPORT] Permission check passed, setting up export dialog');
+      
+      // Refresh subscription data in the background to update header
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error('Export permission check failed:', error);
       toast.error("Failed to verify export permissions");
