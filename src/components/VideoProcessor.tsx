@@ -197,6 +197,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   };
 
   const exportVideo = async () => {
+    console.log('[EXPORT] Starting export process');
     if (filteredScenes.length === 0) {
       toast.error("No scenes to export");
       return;
@@ -283,17 +284,20 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       }
 
       // Export permission check passed, proceed with export
+      console.log('[EXPORT] Permission check passed, setting up export dialog');
     } catch (error) {
       console.error('Export permission check failed:', error);
       toast.error("Failed to verify export permissions");
       return;
     }
     
+    console.log('[EXPORT] Setting export dialog state');
     setShowExportDialog(true);
     setIsExporting(true);
     setExportProgress(0);
     setExportLogs([]);
     setCurrentStep('export');
+    console.log('[EXPORT] Export dialog should now be visible');
     
     try {
       addLog("Starting browser-native video export...");
