@@ -233,7 +233,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
             email: user.email,
             user_id: user.id,
             subscribed: false,
-            free_exports_used: 1,
+            free_exports_used: 0, // Start with 0, increment after export starts
           })
           .select()
           .single();
@@ -244,6 +244,20 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           return;
         }
         subscriber = newSubscriber;
+        
+        // Now increment for this first export
+        const { error: updateError } = await supabase
+          .from("subscribers")
+          .update({
+            free_exports_used: 1,
+          })
+          .eq("email", user.email);
+
+        if (updateError) {
+          console.error('Error updating export count:', updateError);
+          toast.error("Failed to track export usage");
+          return;
+        }
       } else {
         // Check if user has exports remaining
         if (!subscriber.subscribed && subscriber.free_exports_used >= 3) {
