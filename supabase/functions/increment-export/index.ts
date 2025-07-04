@@ -18,44 +18,36 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Create Supabase client using the user's JWT token for authentication
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    console.log('[INCREMENT-EXPORT] No authorization header provided');
-    return new Response(JSON.stringify({ error: "No authorization header provided" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 401,
-    });
-  }
-
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    {
-      auth: {
-        persistSession: false,
-      },
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    }
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } }
   );
 
   try {
     console.log('[INCREMENT-EXPORT] Function started');
     
-    // Get the current user from the JWT token
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.log('[INCREMENT-EXPORT] No authorization header provided');
+      return new Response(JSON.stringify({ error: "No authorization header provided" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    console.log('[INCREMENT-EXPORT] Token extracted, length:', token.length);
     
+    // Use the service role client to validate the user token
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     console.log('[INCREMENT-EXPORT] Auth result:', { 
-      hasUser: !!user, 
-      userEmail: user?.email,
+      hasUser: !!userData?.user, 
+      userEmail: userData?.user?.email,
       error: userError?.message 
     });
     
-    if (userError || !user?.email) {
+    if (userError || !userData?.user?.email) {
       console.log('[INCREMENT-EXPORT] Authentication failed:', userError?.message);
       return new Response(JSON.stringify({ error: "Authentication failed" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -63,6 +55,7 @@ serve(async (req) => {
       });
     }
     
+    const user = userData.user;
     console.log('[INCREMENT-EXPORT] User authenticated:', { userId: user.id, email: user.email });
 
     // Get current subscriber data
