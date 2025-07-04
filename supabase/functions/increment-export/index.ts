@@ -18,49 +18,46 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Use the service role key to perform writes (upsert) in Supabase
+  // Create Supabase client using the user's JWT token for authentication
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    console.log('[INCREMENT-EXPORT] No authorization header provided');
+    return new Response(JSON.stringify({ error: "No authorization header provided" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401,
+    });
+  }
+
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    {
+      auth: {
+        persistSession: false,
+      },
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    }
   );
 
   try {
     console.log('[INCREMENT-EXPORT] Function started');
     
-    const authHeader = req.headers.get("Authorization");
-    console.log('[INCREMENT-EXPORT] Auth header present:', !!authHeader);
+    // Get the current user from the JWT token
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     
-    if (!authHeader) {
-      console.log('[INCREMENT-EXPORT] No authorization header provided');
-      return new Response(JSON.stringify({ error: "No authorization header provided" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    console.log('[INCREMENT-EXPORT] Token extracted, length:', token.length);
-    
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     console.log('[INCREMENT-EXPORT] Auth result:', { 
-      hasUser: !!userData?.user, 
-      userEmail: userData?.user?.email,
+      hasUser: !!user, 
+      userEmail: user?.email,
       error: userError?.message 
     });
     
-    if (userError) {
-      console.log('[INCREMENT-EXPORT] Authentication error:', userError.message);
-      return new Response(JSON.stringify({ error: `Authentication error: ${userError.message}` }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
-    
-    const user = userData.user;
-    if (!user?.email) {
-      console.log('[INCREMENT-EXPORT] User not authenticated or email not available');
-      return new Response(JSON.stringify({ error: "User not authenticated or email not available" }), {
+    if (userError || !user?.email) {
+      console.log('[INCREMENT-EXPORT] Authentication failed:', userError?.message);
+      return new Response(JSON.stringify({ error: "Authentication failed" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       });
