@@ -14,6 +14,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   checkSubscription: () => Promise<void>;
+  checkSubscriptionDirect: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -39,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!session) return;
     
     try {
+      // Try the edge function first
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -46,16 +48,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('Error checking subscription:', error);
-        return;
+        console.error('Error checking subscription via edge function:', error);
+        // Fallback to direct database query
+        return await checkSubscriptionDirect();
       }
 
+      console.log('Subscription check result:', data);
       setSubscribed(data.subscribed || false);
       setFreeExportsUsed(data.free_exports_used || 0);
       setSubscriptionTier(data.subscription_tier);
       setSubscriptionEnd(data.subscription_end);
     } catch (error) {
       console.error('Error checking subscription:', error);
+      // Fallback to direct database query
+      await checkSubscriptionDirect();
+    }
+  };
+
+  const checkSubscriptionDirect = async () => {
+    if (!session?.user?.email) return;
+    
+    try {
+      console.log('Checking subscription directly from database for:', session.user.email);
+      const { data: subscriber, error } = await supabase
+        .from("subscribers")
+        .select("*")
+        .eq("email", session.user.email)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching subscriber directly:', error);
+        return;
+      }
+
+      console.log('Direct database subscription result:', subscriber);
+      if (subscriber) {
+        setSubscribed(subscriber.subscribed || false);
+        setFreeExportsUsed(subscriber.free_exports_used || 0);
+        setSubscriptionTier(subscriber.subscription_tier);
+        setSubscriptionEnd(subscriber.subscription_end);
+      } else {
+        // No record found, set defaults
+        setSubscribed(false);
+        setFreeExportsUsed(0);
+        setSubscriptionTier(null);
+        setSubscriptionEnd(null);
+      }
+    } catch (error) {
+      console.error('Error in direct subscription check:', error);
     }
   };
 
@@ -133,6 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signOut,
     checkSubscription,
+    checkSubscriptionDirect,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

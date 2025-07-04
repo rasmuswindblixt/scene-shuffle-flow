@@ -33,7 +33,7 @@ interface Scene {
 }
 
 const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcessorProps) => {
-  const { checkSubscription } = useAuth();
+  const { checkSubscription, checkSubscriptionDirect } = useAuth();
   const videoPreviewRef = useRef<VideoPreviewRef>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -252,8 +252,8 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
         }
         console.log('[CREDIT] New subscriber created:', newSubscriber);
         
-        // Refresh the subscription data in the UI
-        setTimeout(() => checkSubscription(), 500);
+        // Refresh the subscription data in the UI using direct database check
+        setTimeout(() => checkSubscriptionDirect(), 100);
       } else if (!subscriber.subscribed) {
         // Increment export count for non-subscribers
         console.log('[CREDIT] Updating existing subscriber, incrementing from', subscriber.free_exports_used, 'to', subscriber.free_exports_used + 1);
@@ -274,8 +274,8 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
         console.log('[CREDIT] Subscriber updated successfully:', updatedSubscriber);
         toast.success(`Export started! ${3 - updatedSubscriber.free_exports_used} exports remaining`);
         
-        // Refresh the subscription data in the UI
-        setTimeout(() => checkSubscription(), 500);
+        // Refresh the subscription data in the UI using direct database check
+        setTimeout(() => checkSubscriptionDirect(), 100);
       } else {
         console.log('[CREDIT] User is subscribed, no credit needed');
         toast.success("Export started!");
