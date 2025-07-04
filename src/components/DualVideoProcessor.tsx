@@ -297,12 +297,7 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
         }
       }
 
-      // Refresh subscription data after successful export check
-      setTimeout(() => {
-        if (window.location.pathname === '/app') {
-          window.location.reload();
-        }
-      }, 100);
+      // Export permission check passed, proceed with export
     } catch (error) {
       console.error('Export permission check failed:', error);
       toast.error("Failed to verify export permissions");
