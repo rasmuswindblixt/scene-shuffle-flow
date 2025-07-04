@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import AuthDialog from "@/components/AuthDialog";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
   const { user, signOut } = useAuth();
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
@@ -46,8 +49,8 @@ const Header = () => {
             </>
           ) : (
             <>
-              <Button variant="ghost" asChild className="hidden sm:inline-flex">
-                <a href="/auth">Sign In</a>
+              <Button variant="ghost" onClick={() => setAuthDialogOpen(true)} className="hidden sm:inline-flex">
+                Sign In
               </Button>
               <Button variant="hero" asChild>
                 <a href="/app">Get Started</a>
@@ -56,6 +59,7 @@ const Header = () => {
           )}
         </div>
       </div>
+      <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
     </header>
   );
 };

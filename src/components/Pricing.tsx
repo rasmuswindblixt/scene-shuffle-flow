@@ -21,10 +21,10 @@ const Pricing = () => {
 
         <div className="max-w-md mx-auto">
           <Card className="border-2 border-primary/20 shadow-glow bg-gradient-to-br from-card via-card to-primary/5 relative overflow-hidden">
-            {/* Popular badge */}
+            {/* Limited offer badge */}
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="bg-gradient-primary text-primary-foreground px-6 py-2 rounded-full text-sm font-semibold shadow-primary">
-                Most Popular
+              <div className="bg-red-500 text-white px-6 py-2 rounded-full text-sm font-semibold animate-pulse">
+                🔥 Limited Time Offer
               </div>
             </div>
 
@@ -34,9 +34,17 @@ const Pricing = () => {
                 Perfect for content creators and video editors
               </CardDescription>
               <div className="mt-6">
-                <div className="text-5xl font-bold">
-                  $12.99
-                  <span className="text-xl text-muted-foreground font-normal">/month</span>
+                <div className="space-y-2">
+                  <div className="text-2xl text-muted-foreground line-through">
+                    $34.99/month
+                  </div>
+                  <div className="text-5xl font-bold text-red-500">
+                    $12.99
+                    <span className="text-xl text-muted-foreground font-normal">/month</span>
+                  </div>
+                  <div className="text-sm font-semibold text-red-500">
+                    Save 63% - Limited Time Only!
+                  </div>
                 </div>
                 <div className="text-sm text-muted-foreground mt-2">
                   Billed monthly • Cancel anytime
