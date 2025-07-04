@@ -210,20 +210,62 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('increment-export', {
-        headers: {
-          Authorization: `Bearer ${authData.session.access_token}`,
-        },
-      });
+      const user = authData.session.user;
 
-      if (error) {
-        toast.error(error.message || "Failed to check export permissions");
+      // Get or create subscriber record
+      let { data: subscriber, error: selectError } = await supabase
+        .from("subscribers")
+        .select("*")
+        .eq("email", user.email)
+        .maybeSingle();
+
+      if (selectError) {
+        console.error('Error fetching subscriber:', selectError);
+        toast.error("Failed to check export permissions");
         return;
       }
 
-      if (data.error) {
-        toast.error(data.error);
-        return;
+      // Create subscriber if doesn't exist
+      if (!subscriber) {
+        const { data: newSubscriber, error: insertError } = await supabase
+          .from("subscribers")
+          .insert({
+            email: user.email,
+            user_id: user.id,
+            subscribed: false,
+            free_exports_used: 1,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error creating subscriber:', insertError);
+          toast.error("Failed to create export record");
+          return;
+        }
+        subscriber = newSubscriber;
+      } else {
+        // Check if user has exports remaining
+        if (!subscriber.subscribed && subscriber.free_exports_used >= 3) {
+          toast.error("Free export limit reached. Please subscribe to continue.");
+          return;
+        }
+
+        // Increment export count for non-subscribers
+        if (!subscriber.subscribed) {
+          const { error: updateError } = await supabase
+            .from("subscribers")
+            .update({
+              free_exports_used: subscriber.free_exports_used + 1,
+            })
+            .eq("email", user.email);
+
+          if (updateError) {
+            console.error('Error updating export count:', updateError);
+            toast.error("Failed to track export usage");
+            return;
+          }
+        }
       }
 
       // Refresh subscription data after successful export check
