@@ -229,6 +229,11 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           })
           .eq("email", user.email);
       }
+      
+      // Add a longer delay before refreshing to allow export to start
+      setTimeout(() => {
+        window.location.reload();
+      }, 5000);
     } catch (error) {
       console.error('Error drawing credit:', error);
     }
