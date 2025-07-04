@@ -212,6 +212,7 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
   };
 
   const drawCredit = async (user: any) => {
+    console.log('[CREDIT] Starting credit draw for user:', user.email);
     try {
       // Get or create subscriber record
       let { data: subscriber, error: selectError } = await supabase
@@ -221,31 +222,59 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
         .maybeSingle();
 
       if (selectError) {
-        console.error('Error fetching subscriber:', selectError);
+        console.error('[CREDIT] Error fetching subscriber:', selectError);
+        toast.error("Failed to update export count");
         return;
       }
 
+      console.log('[CREDIT] Current subscriber data:', subscriber);
+
       // Create subscriber if doesn't exist
       if (!subscriber) {
-        await supabase
+        console.log('[CREDIT] Creating new subscriber with 1 export used');
+        const { data: newSubscriber, error: insertError } = await supabase
           .from("subscribers")
           .insert({
             email: user.email,
             user_id: user.id,
             subscribed: false,
             free_exports_used: 1,
-          });
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('[CREDIT] Error creating subscriber:', insertError);
+          toast.error("Failed to track export usage");
+          return;
+        }
+        console.log('[CREDIT] New subscriber created:', newSubscriber);
       } else if (!subscriber.subscribed) {
         // Increment export count for non-subscribers
-        await supabase
+        console.log('[CREDIT] Updating existing subscriber, incrementing from', subscriber.free_exports_used, 'to', subscriber.free_exports_used + 1);
+        const { data: updatedSubscriber, error: updateError } = await supabase
           .from("subscribers")
           .update({
             free_exports_used: subscriber.free_exports_used + 1,
           })
-          .eq("email", user.email);
+          .eq("email", user.email)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('[CREDIT] Error updating subscriber:', updateError);
+          toast.error("Failed to track export usage");
+          return;
+        }
+        console.log('[CREDIT] Subscriber updated successfully:', updatedSubscriber);
+        toast.success(`Export started! ${3 - updatedSubscriber.free_exports_used} exports remaining`);
+      } else {
+        console.log('[CREDIT] User is subscribed, no credit needed');
+        toast.success("Export started!");
       }
     } catch (error) {
-      console.error('Error drawing credit:', error);
+      console.error('[CREDIT] Error drawing credit:', error);
+      toast.error("Failed to track export usage");
     }
   };
 
@@ -269,8 +298,8 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
     setExportLogs([]);
     setCurrentStep('export');
     
-    // Draw credit in background
-    drawCredit(authData.session.user);
+    // Draw credit and wait for it to complete
+    await drawCredit(authData.session.user);
     
     try {
       addLog("Starting dual video export...");
