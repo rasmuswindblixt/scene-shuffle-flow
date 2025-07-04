@@ -18,16 +18,23 @@ serve(async (req) => {
   );
 
   try {
+    console.log('[INCREMENT-EXPORT] Function started');
+    
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
 
     const token = authHeader.replace("Bearer ", "");
+    console.log('[INCREMENT-EXPORT] Authenticating user with token');
+    
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
+    
+    console.log('[INCREMENT-EXPORT] User authenticated:', { userId: user.id, email: user.email });
 
     // Get current subscriber data
+    console.log('[INCREMENT-EXPORT] Fetching subscriber data');
     const { data: subscriber, error: selectError } = await supabaseClient
       .from("subscribers")
       .select("*")
@@ -35,11 +42,13 @@ serve(async (req) => {
       .single();
 
     if (selectError && selectError.code !== 'PGRST116') {
+      console.log('[INCREMENT-EXPORT] Error fetching subscriber:', selectError);
       throw new Error(`Error fetching subscriber: ${selectError.message}`);
     }
 
     // If no subscriber record exists, create one
     if (!subscriber) {
+      console.log('[INCREMENT-EXPORT] Creating new subscriber record');
       await supabaseClient.from("subscribers").insert({
         email: user.email,
         user_id: user.id,
@@ -48,6 +57,7 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       });
       
+      console.log('[INCREMENT-EXPORT] New subscriber created, returning success');
       return new Response(JSON.stringify({ 
         success: true, 
         free_exports_used: 1,
@@ -59,7 +69,13 @@ serve(async (req) => {
     }
 
     // Check if user has subscription or free exports remaining
+    console.log('[INCREMENT-EXPORT] Checking export limits:', { 
+      subscribed: subscriber.subscribed, 
+      freeExportsUsed: subscriber.free_exports_used 
+    });
+    
     if (!subscriber.subscribed && subscriber.free_exports_used >= 3) {
+      console.log('[INCREMENT-EXPORT] Free export limit reached');
       return new Response(JSON.stringify({ 
         error: "Free export limit reached. Please subscribe to continue.",
         free_exports_used: subscriber.free_exports_used,
@@ -72,6 +88,7 @@ serve(async (req) => {
 
     // Increment export count for non-subscribers
     if (!subscriber.subscribed) {
+      console.log('[INCREMENT-EXPORT] Incrementing export count for non-subscriber');
       const { error: updateError } = await supabaseClient
         .from("subscribers")
         .update({ 
@@ -81,10 +98,12 @@ serve(async (req) => {
         .eq("email", user.email);
 
       if (updateError) {
+        console.log('[INCREMENT-EXPORT] Error updating export count:', updateError);
         throw new Error(`Error updating export count: ${updateError.message}`);
       }
     }
 
+    console.log('[INCREMENT-EXPORT] Export successful');
     return new Response(JSON.stringify({ 
       success: true,
       free_exports_used: subscriber.subscribed ? subscriber.free_exports_used : subscriber.free_exports_used + 1,
@@ -95,7 +114,7 @@ serve(async (req) => {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("ERROR in increment-export", errorMessage);
+    console.error("[INCREMENT-EXPORT] ERROR:", errorMessage);
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
