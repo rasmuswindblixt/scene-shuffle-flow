@@ -706,7 +706,11 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                   </select>
                 </div>
                 
-                <Button variant="premium" onClick={exportVideo} className="w-full">
+                <Button variant="premium" onClick={() => {
+                  console.log('EXPORT BUTTON CLICKED!');
+                  alert('Export button clicked - check console');
+                  exportVideo();
+                }} className="w-full">
                   Export Video
                 </Button>
               </CardContent>
