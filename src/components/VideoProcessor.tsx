@@ -196,23 +196,8 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     setExportLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
 
-  const exportVideo = async () => {
-    console.log('[EXPORT] Starting export process');
-    if (filteredScenes.length === 0) {
-      toast.error("No scenes to export");
-      return;
-    }
-
-    // Check export permissions first
+  const drawCredit = async (user: any) => {
     try {
-      const { data: authData } = await supabase.auth.getSession();
-      if (!authData.session) {
-        toast.error("Please sign in to export videos");
-        return;
-      }
-
-      const user = authData.session.user;
-
       // Get or create subscriber record
       let { data: subscriber, error: selectError } = await supabase
         .from("subscribers")
@@ -222,87 +207,56 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
 
       if (selectError) {
         console.error('Error fetching subscriber:', selectError);
-        toast.error("Failed to check export permissions");
         return;
       }
 
       // Create subscriber if doesn't exist
       if (!subscriber) {
-        const { data: newSubscriber, error: insertError } = await supabase
+        await supabase
           .from("subscribers")
           .insert({
             email: user.email,
             user_id: user.id,
             subscribed: false,
-            free_exports_used: 0, // Start with 0, increment after export starts
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Error creating subscriber:', insertError);
-          toast.error("Failed to create export record");
-          return;
-        }
-        subscriber = newSubscriber;
-        
-        // Now increment for this first export
-        const { error: updateError } = await supabase
+            free_exports_used: 1,
+          });
+      } else if (!subscriber.subscribed) {
+        // Increment export count for non-subscribers
+        await supabase
           .from("subscribers")
           .update({
-            free_exports_used: 1,
+            free_exports_used: subscriber.free_exports_used + 1,
           })
           .eq("email", user.email);
-
-        if (updateError) {
-          console.error('Error updating export count:', updateError);
-          toast.error("Failed to track export usage");
-          return;
-        }
-      } else {
-        // Check if user has exports remaining
-        if (!subscriber.subscribed && subscriber.free_exports_used >= 3) {
-          toast.error("Free export limit reached. Please subscribe to continue.");
-          return;
-        }
-
-        // Increment export count for non-subscribers
-        if (!subscriber.subscribed) {
-          const { error: updateError } = await supabase
-            .from("subscribers")
-            .update({
-              free_exports_used: subscriber.free_exports_used + 1,
-            })
-            .eq("email", user.email);
-
-          if (updateError) {
-            console.error('Error updating export count:', updateError);
-            toast.error("Failed to track export usage");
-            return;
-          }
-        }
       }
-
-      // Export permission check passed, proceed with export
-      console.log('[EXPORT] Permission check passed, setting up export dialog');
-      
-      // Refresh subscription data in the background to update header
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
     } catch (error) {
-      console.error('Export permission check failed:', error);
-      toast.error("Failed to verify export permissions");
+      console.error('Error drawing credit:', error);
+    }
+  };
+
+  const exportVideo = async () => {
+    console.log('[EXPORT] Starting export process');
+    if (filteredScenes.length === 0) {
+      toast.error("No scenes to export");
       return;
     }
-    
-    console.log('[EXPORT] Setting export dialog state');
+
+    // Simple auth check
+    const { data: authData } = await supabase.auth.getSession();
+    if (!authData.session) {
+      toast.error("Please sign in to export videos");
+      return;
+    }
+
+    // Open dialog immediately and draw credit
     setShowExportDialog(true);
     setIsExporting(true);
     setExportProgress(0);
     setExportLogs([]);
     setCurrentStep('export');
-    console.log('[EXPORT] Export dialog should now be visible');
+    
+    // Draw credit in background
+    drawCredit(authData.session.user);
     
     try {
       addLog("Starting browser-native video export...");
