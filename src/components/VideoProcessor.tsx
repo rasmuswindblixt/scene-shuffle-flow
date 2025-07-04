@@ -199,7 +199,9 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   };
 
   const drawCredit = async (user: any) => {
-    console.log('[CREDIT] Starting credit draw for user:', user.email);
+    console.log('[CREDIT] ===== STARTING CREDIT DRAW =====');
+    console.log('[CREDIT] User email:', user.email);
+    console.log('[CREDIT] User ID:', user.id);
     try {
       // Get or create subscriber record
       let { data: subscriber, error: selectError } = await supabase
@@ -236,9 +238,11 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           return;
         }
         console.log('[CREDIT] New subscriber created:', newSubscriber);
+        console.log('[CREDIT] About to call updateFreeExportsUsed with value: 1');
         
         // Update UI state immediately
         updateFreeExportsUsed(1);
+        console.log('[CREDIT] updateFreeExportsUsed called');
         toast.success(`Export started! 2 exports remaining`);
       } else if (!subscriber.subscribed) {
         // Increment export count for non-subscribers
@@ -258,9 +262,11 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
           return;
         }
         console.log('[CREDIT] Subscriber updated successfully:', updatedSubscriber);
+        console.log('[CREDIT] About to call updateFreeExportsUsed with value:', updatedSubscriber.free_exports_used);
         
         // Update UI state immediately
         updateFreeExportsUsed(updatedSubscriber.free_exports_used);
+        console.log('[CREDIT] updateFreeExportsUsed called');
         toast.success(`Export started! ${3 - updatedSubscriber.free_exports_used} exports remaining`);
       } else {
         console.log('[CREDIT] User is subscribed, no credit needed');
@@ -273,7 +279,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   };
 
   const exportVideo = async () => {
-    console.log('[EXPORT] Starting export process');
+    console.log('[EXPORT] Export button clicked');
     if (filteredScenes.length === 0) {
       toast.error("No scenes to export");
       return;
@@ -286,6 +292,8 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       return;
     }
 
+    console.log('[EXPORT] Auth check passed, user:', authData.session.user.email);
+
     // Open dialog immediately and draw credit
     setShowExportDialog(true);
     setIsExporting(true);
@@ -293,6 +301,7 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     setExportLogs([]);
     setCurrentStep('export');
     
+    console.log('[EXPORT] Dialog opened, calling drawCredit');
     // Draw credit and wait for it to complete
     await drawCredit(authData.session.user);
     

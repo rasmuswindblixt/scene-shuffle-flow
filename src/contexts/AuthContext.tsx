@@ -101,8 +101,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateFreeExportsUsed = (count: number) => {
-    console.log('Updating free exports used to:', count);
+    console.log('[AUTH] updateFreeExportsUsed called with count:', count);
+    console.log('[AUTH] Current freeExportsUsed before update:', freeExportsUsed);
     setFreeExportsUsed(count);
+    console.log('[AUTH] setFreeExportsUsed called with:', count);
   };
 
   useEffect(() => {
