@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import SceneDetector from "@/components/SceneDetector";
 import SceneTimeline from "@/components/SceneTimeline";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DualVideoProcessorProps {
   videoFiles: [File, File];
@@ -213,6 +214,42 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
   const exportVideo = async () => {
     if (filteredScenes.length === 0) {
       toast.error("No scenes to export");
+      return;
+    }
+
+    // Check export permissions first
+    try {
+      const { data: authData } = await supabase.auth.getSession();
+      if (!authData.session) {
+        toast.error("Please sign in to export videos");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('increment-export', {
+        headers: {
+          Authorization: `Bearer ${authData.session.access_token}`,
+        },
+      });
+
+      if (error) {
+        toast.error(error.message || "Failed to check export permissions");
+        return;
+      }
+
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      // Refresh subscription data after successful export check
+      setTimeout(() => {
+        if (window.location.pathname === '/app') {
+          window.location.reload();
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Export permission check failed:', error);
+      toast.error("Failed to verify export permissions");
       return;
     }
     

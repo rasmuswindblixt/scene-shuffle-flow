@@ -4,7 +4,7 @@ import AuthDialog from "@/components/AuthDialog";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, subscribed, freeExportsUsed } = useAuth();
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   
   return (
@@ -40,9 +40,21 @@ const Header = () => {
         <div className="flex items-center gap-4">
           {user ? (
             <>
-              <span className="text-sm text-foreground/80 hidden sm:inline">
-                {user.email}
-              </span>
+              <div className="text-sm text-foreground/80 hidden sm:block">
+                <div>{user.email}</div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    subscribed 
+                      ? 'bg-gradient-primary text-primary-foreground' 
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {subscribed ? 'Pro' : 'Free'}
+                  </span>
+                  <span>
+                    {subscribed ? 'Unlimited exports' : `${3 - freeExportsUsed}/3 exports left`}
+                  </span>
+                </div>
+              </div>
               <Button variant="ghost" onClick={() => signOut()}>
                 Sign Out
               </Button>
