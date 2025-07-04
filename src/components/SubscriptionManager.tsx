@@ -120,11 +120,23 @@ const SubscriptionManager = () => {
           <div className="space-y-3">
             <div className="text-center">
               <p className="text-lg font-semibold text-foreground mb-2">
-                Subscribe to Get Started
+                Free Plan
               </p>
-              <p className="text-sm text-muted-foreground">
-                Professional video splitting requires a subscription
+              <p className="text-sm text-muted-foreground mb-3">
+                You have {3 - freeExportsUsed} free exports remaining
               </p>
+              <div className="bg-muted rounded-lg p-3 mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium">Free Exports</span>
+                  <span className="text-sm font-bold">{freeExportsUsed}/3</span>
+                </div>
+                <div className="w-full bg-background rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${(freeExportsUsed / 3) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
             </div>
             
             <div className="border rounded-lg p-4 bg-gradient-to-br from-purple-50 to-blue-50">
