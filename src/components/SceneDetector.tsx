@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 
 interface Scene {
   id: string;
@@ -23,6 +24,8 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing, segmentLength 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [detectionProgress, setDetectionProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [seekTimeouts, setSeekTimeouts] = useState(0);
+  const MAX_TIMEOUTS = 5;
 
   useEffect(() => {
     if (isAnalyzing && videoRef.current) {
@@ -72,14 +75,31 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing, segmentLength 
     canvas.width = 160;
     canvas.height = 90;
 
+    let timeouts = 0;
+
     for (let time = 0; time <= duration; time += frameInterval) {
+      video.load(); // Chrome workaround
       video.currentTime = time;
       setCurrentTime(time);
       setDetectionProgress((time / duration) * 100);
-
-      await new Promise(resolve => {
-        video.onseeked = resolve;
+      let seeked = false;
+      const seekPromise = new Promise((resolve) => {
+        video.onseeked = () => { seeked = true; resolve(true); };
+        video.onerror = () => { resolve(false); };
       });
+      // Timeout after 2s
+      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2000, false));
+      const ok = await Promise.race([seekPromise, timeoutPromise]);
+      if (!seeked) {
+        timeouts++;
+        setSeekTimeouts(timeouts);
+        console.warn(`Seek timeout at ${time.toFixed(2)}s (Chrome bug or unsupported video)`);
+        if (timeouts >= MAX_TIMEOUTS) {
+          toast.error("Video analysis failed: This video may have an unsupported format for Chrome. Try converting to MP4 (H.264) or use Safari.");
+          return;
+        }
+        continue; // skip this frame
+      }
 
       // Draw current frame to canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);

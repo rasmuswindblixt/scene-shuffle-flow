@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useDropzone } from 'react-dropzone';
 
 interface DualVideoUploadProps {
   onVideosUpload: (files: [File, File]) => void;
@@ -16,6 +17,8 @@ const DualVideoUpload = ({ onVideosUpload, onBack }: DualVideoUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInput1Ref = useRef<HTMLInputElement>(null);
   const fileInput2Ref = useRef<HTMLInputElement>(null);
+  const [inputKey1, setInputKey1] = useState(0);
+  const [inputKey2, setInputKey2] = useState(0);
 
   const validateFile = (file: File) => {
     if (!file.type.startsWith('video/')) {
@@ -33,13 +36,16 @@ const DualVideoUpload = ({ onVideosUpload, onBack }: DualVideoUploadProps) => {
 
   const handleFileSelect = (file: File, videoNumber: 1 | 2) => {
     if (!validateFile(file)) return;
-
     if (videoNumber === 1) {
       setVideo1(file);
       toast.success("Video 1 uploaded successfully!");
+      if (fileInput1Ref.current) fileInput1Ref.current.value = '';
+      setInputKey1(k => k + 1);
     } else {
       setVideo2(file);
       toast.success("Video 2 uploaded successfully!");
+      if (fileInput2Ref.current) fileInput2Ref.current.value = '';
+      setInputKey2(k => k + 1);
     }
   };
 
@@ -58,29 +64,24 @@ const DualVideoUpload = ({ onVideosUpload, onBack }: DualVideoUploadProps) => {
     }, 1500);
   };
 
-  const handleDrop1 = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging1(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileSelect(files[0], 1);
-    }
-  };
-
-  const handleDrop2 = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging2(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileSelect(files[0], 2);
-    }
+  const getDropzoneProps = (videoNumber: 1 | 2) => {
+    return useDropzone({
+      onDrop: (acceptedFiles: File[]) => {
+        if (acceptedFiles && acceptedFiles.length > 0) {
+          handleFileSelect(acceptedFiles[0], videoNumber);
+        }
+      },
+      accept: { 'video/*': [] },
+      multiple: false,
+      maxFiles: 1,
+      noKeyboard: false,
+    });
   };
 
   const UploadCard = ({ 
     videoNumber, 
     file, 
     isDragging, 
-    onDrop, 
     onDragOver, 
     onDragLeave, 
     onClick 
@@ -88,69 +89,69 @@ const DualVideoUpload = ({ onVideosUpload, onBack }: DualVideoUploadProps) => {
     videoNumber: 1 | 2;
     file: File | null;
     isDragging: boolean;
-    onDrop: (e: React.DragEvent) => void;
     onDragOver: (e: React.DragEvent) => void;
     onDragLeave: (e: React.DragEvent) => void;
     onClick: () => void;
-  }) => (
-    <Card className={`
-      border-2 border-dashed transition-all duration-300 cursor-pointer
-      ${isDragging 
-        ? 'border-primary bg-primary/5 shadow-glow' 
-        : file 
-          ? 'border-green-500 bg-green-50' 
-          : 'border-border hover:border-primary/50 hover:bg-accent/50'
-      }
-    `}>
-      <CardContent 
-        className="p-8 text-center"
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onClick={onClick}
+  }) => {
+    const { getRootProps, getInputProps, isDragActive } = getDropzoneProps(videoNumber);
+    return (
+      <Card
+        {...getRootProps()}
+        className={`
+          border-2 border-dashed transition-all duration-300 cursor-pointer
+          ${isDragActive || isDragging 
+            ? 'border-primary bg-primary/5 shadow-glow' 
+            : file 
+              ? 'border-green-500 bg-green-50' 
+              : 'border-border hover:border-primary/50 hover:bg-accent/50'
+          }
+        `}
       >
-        {file ? (
-          <div className="space-y-4">
-            <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">✅</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Video {videoNumber} Ready</h3>
-              <p className="text-sm text-muted-foreground mb-2">{file.name}</p>
-              <p className="text-xs text-muted-foreground">
-                Size: {(file.size / 1024 / 1024).toFixed(1)}MB
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onClick(); }}>
-              Change Video
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center">
-              <span className="text-2xl text-primary-foreground">{videoNumber}</span>
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold mb-2">
-                {isDragging ? "Drop video here" : `Upload Video ${videoNumber}`}
-              </h3>
-              <p className="text-muted-foreground">
-                or click to browse files
-              </p>
-            </div>
-            <div className="flex flex-col items-center gap-4">
-              <Button variant="hero" size="lg">
-                Select Video {videoNumber}
+        <CardContent className="p-8 text-center">
+          <input {...getInputProps()} />
+          {file ? (
+            <div className="space-y-4">
+              <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl">✅</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Video {videoNumber} Ready</h3>
+                <p className="text-sm text-muted-foreground mb-2">{file.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  Size: {(file.size / 1024 / 1024).toFixed(1)}MB
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onClick(); }}>
+                Change Video
               </Button>
-              <p className="text-sm text-muted-foreground">
-                Supports MP4, MOV, AVI, WebM • Max size: 2GB
-              </p>
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+          ) : (
+            <div className="space-y-6">
+              <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center">
+                <span className="text-2xl text-primary-foreground">{videoNumber}</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-2">
+                  {isDragActive ? "Drop video here" : `Upload Video ${videoNumber}`}
+                </h3>
+                <p className="text-muted-foreground">
+                  or click to browse files
+                </p>
+              </div>
+              <div className="flex flex-col items-center gap-4">
+                <Button variant="hero" size="lg">
+                  Select Video {videoNumber}
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  Supports MP4, MOV, AVI, WebM • Max size: 2GB
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="container mx-auto px-6 py-12">
@@ -174,7 +175,6 @@ const DualVideoUpload = ({ onVideosUpload, onBack }: DualVideoUploadProps) => {
             videoNumber={1}
             file={video1}
             isDragging={isDragging1}
-            onDrop={handleDrop1}
             onDragOver={(e) => { e.preventDefault(); setIsDragging1(true); }}
             onDragLeave={(e) => { e.preventDefault(); setIsDragging1(false); }}
             onClick={() => fileInput1Ref.current?.click()}
@@ -184,7 +184,6 @@ const DualVideoUpload = ({ onVideosUpload, onBack }: DualVideoUploadProps) => {
             videoNumber={2}
             file={video2}
             isDragging={isDragging2}
-            onDrop={handleDrop2}
             onDragOver={(e) => { e.preventDefault(); setIsDragging2(true); }}
             onDragLeave={(e) => { e.preventDefault(); setIsDragging2(false); }}
             onClick={() => fileInput2Ref.current?.click()}
@@ -238,32 +237,6 @@ const DualVideoUpload = ({ onVideosUpload, onBack }: DualVideoUploadProps) => {
             </p>
           </Card>
         </div>
-
-        {/* Hidden file inputs */}
-        <input
-          ref={fileInput1Ref}
-          type="file"
-          accept="video/*"
-          onChange={(e) => {
-            const files = e.target.files;
-            if (files && files.length > 0) {
-              handleFileSelect(files[0], 1);
-            }
-          }}
-          className="hidden"
-        />
-        <input
-          ref={fileInput2Ref}
-          type="file"
-          accept="video/*"
-          onChange={(e) => {
-            const files = e.target.files;
-            if (files && files.length > 0) {
-              handleFileSelect(files[0], 2);
-            }
-          }}
-          className="hidden"
-        />
       </div>
     </div>
   );

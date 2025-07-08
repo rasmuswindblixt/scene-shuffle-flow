@@ -49,6 +49,23 @@ const FAQ = () => {
     {
       question: "Do you offer support?",
       answer: "We provide 24/7 priority email support for all subscribers. Our team typically responds within 2 hours during business days."
+    },
+    // New English FAQs (translated from Swedish)
+    {
+      question: "Why does my original 30-minute video become only 12 minutes?",
+      answer: "Some videos have very long scenes. If you set your max scene length to, for example, 6 seconds, there won't be many scenes left after filtering. For best results, use a high-quality video with lots of short scenes. Review your video before splitting to ensure it's suitable."
+    },
+    {
+      question: "I get an error message when uploading my video. Why?",
+      answer: "This can be due to how your browser handles video files, especially in Chrome on Mac. Try another browser (like Safari or Firefox) or convert your video to MP4 (H.264). If the problem persists, please contact support."
+    },
+    {
+      question: "Why is the quality of my exported video so low?",
+      answer: "The exported video can never be higher quality than the original you upload. For best results, use a high-quality source video. You can also try enhancing your video with tools like CapCut's video enhancer before uploading."
+    },
+    {
+      question: "Why should I use this app when I can split scenes for free in CapCut?",
+      answer: "CapCut is great for splitting scenes, but with ClipMixPRO you can also mix and automatically filter your clips, saving hours of manual work and getting a ready-to-publish, engaging result in minutes. Perfect for YouTube Automation creators who want to save time and money!"
     }
   ];
 
@@ -94,8 +111,8 @@ const FAQ = () => {
           </p>
           <p className="text-foreground">
             Contact our support team at{" "}
-            <a href="mailto:support@videosplitter.com" className="text-primary hover:underline">
-              support@videosplitter.com
+            <a href="mailto:support@ClipMixPRO.com" className="text-primary hover:underline">
+              support@clipmixpro.com
             </a>
           </p>
         </div>

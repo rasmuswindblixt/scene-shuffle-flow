@@ -1,8 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import heroImage from "@/assets/hero-video-splitter.jpg";
+import heroImage from "@/assets/hero-video-splitter-new.jpg";
+import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import demoVideo from "@/assets/clipmixpro_demo.mov";
+import React from "react";
 
 const Hero = () => {
+  const [open, setOpen] = React.useState(false);
   return (
     <div className="relative py-12 md:py-24 flex items-center justify-center overflow-hidden bg-gradient-to-br from-background via-accent/20 to-background">
       {/* Background decoration */}
@@ -16,15 +20,14 @@ const Hero = () => {
           <div className="space-y-6">
             <div className="space-y-4">
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-accent text-accent-foreground text-sm font-medium">
-                🎬 Video Editing Made Simple
+                🎬 YouTube Automation Made Simple
               </div>
               <h1 className="text-5xl md:text-6xl font-bold leading-tight">
-                Split Videos Into
-                <span className="bg-gradient-hero bg-clip-text text-transparent"> Perfect Scenes</span>
+                Instantly Split & Mix Your Videos
+                <span className="bg-gradient-hero bg-clip-text text-transparent"> Into Viral Segments</span>
               </h1>
               <p className="text-xl text-muted-foreground leading-relaxed max-w-lg">
-                Automatically detect scene changes, filter by duration, and create perfectly shuffled video content. 
-                Transform your raw footage into engaging content with AI-powered scene detection.
+                Effortlessly turn long videos into dozens of short, viral-ready clips. Mix, segment, and shuffle scenes with AI—perfect for YouTube Automation creators who want to save hours and maximize engagement.
               </p>
             </div>
 
@@ -32,9 +35,18 @@ const Hero = () => {
               <Button variant="hero" size="lg" className="text-lg px-8 py-6" asChild>
                 <a href="/app">Get Started Now</a>
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6">
-                Watch Demo
-              </Button>
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="lg" className="text-lg px-8 py-6">
+                    Watch Demo
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl w-full">
+                  <div className="w-full" style={{ aspectRatio: '16/9', minHeight: '480px' }}>
+                    <video src={demoVideo} controls autoPlay playsInline className="w-full h-full rounded-lg" />
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             <div className="flex items-center gap-8 text-sm text-muted-foreground">

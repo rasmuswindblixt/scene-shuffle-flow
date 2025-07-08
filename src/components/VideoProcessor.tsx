@@ -11,6 +11,10 @@ import SceneTimeline from "@/components/SceneTimeline";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Info, Plus, X } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 
 interface VideoProcessorProps {
   videoFile: File;
@@ -59,6 +63,12 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
   const [originalVideoQuality, setOriginalVideoQuality] = useState<{width: number, height: number} | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<QualityOption | null>(null);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [customSegmentsEnabled, setCustomSegmentsEnabled] = useState(false);
+  const [customSegments, setCustomSegments] = useState<{ start: number; end: number }[]>([]);
+  const [customSegmentError, setCustomSegmentError] = useState<string | null>(null);
+  const [editingSegment, setEditingSegment] = useState<{ idx: number; key: 'start' | 'end' } | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
+  const [fillGaps, setFillGaps] = useState(false);
 
   const qualityOptions: QualityOption[] = [
     { label: "420p", height: 420, width: 747 },
@@ -120,8 +130,119 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     toast.success("Scene detection completed!");
   };
 
+  const videoDuration = scenes.length > 0 ? Math.max(...scenes.map(s => s.endTime)) : 0;
+
+  const validateCustomSegments = (segments: { start: number; end: number }[]) => {
+    if (segments.length === 0) return null;
+    for (let i = 0; i < segments.length; i++) {
+      const { start, end } = segments[i];
+      if (isNaN(start) || isNaN(end) || start < 0 || end <= start) {
+        return `Segment ${i + 1} has invalid times.`;
+      }
+      if (end > videoDuration) {
+        return `Segment ${i + 1} ends after video duration.`;
+      }
+      for (let j = 0; j < segments.length; j++) {
+        if (i !== j) {
+          const { start: s2, end: e2 } = segments[j];
+          if (start < e2 && end > s2) {
+            return `Segment ${i + 1} overlaps with segment ${j + 1}.`;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const addCustomSegment = () => {
+    const lastEnd = customSegments.length > 0 ? customSegments[customSegments.length - 1].end : 0;
+    const nextEnd = Math.min(lastEnd + 10, videoDuration);
+    setCustomSegments([...customSegments, { start: lastEnd, end: nextEnd }]);
+  };
+
+  // Helper: format seconds as m:ss.s
+  function formatTime(seconds: number) {
+    if (isNaN(seconds) || seconds < 0) return '';
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s.toFixed(1)}`;
+  }
+
+  // Helper: parse m:ss.s or seconds
+  function parseTimeInput(input: string): number {
+    if (!input) return 0;
+    if (input.includes(':')) {
+      const [min, sec] = input.split(':');
+      return parseInt(min) * 60 + parseFloat(sec);
+    }
+    return parseFloat(input);
+  }
+
+  const updateCustomSegment = (idx: number, key: 'start' | 'end', value: string) => {
+    const parsed = parseTimeInput(value);
+    const updated = customSegments.map((seg, i) => i === idx ? { ...seg, [key]: parsed } : seg);
+    setCustomSegments(updated);
+  };
+
+  const removeCustomSegment = (idx: number) => {
+    setCustomSegments(customSegments.filter((_, i) => i !== idx));
+  };
+
+  // Helper: fill segment with repeated scenes to reach target length, never same scene twice in a row
+  function fillSegmentToLength(scenes, targetLength) {
+    if (scenes.length === 0) return [];
+    let filled = [];
+    let total = 0;
+    let idx = 0;
+    let lastId = null;
+    // Track how many times each scene is used
+    const usage = {};
+    while (total < targetLength && scenes.length > 0) {
+      const scene = scenes[idx % scenes.length];
+      if (scene.id === lastId && scenes.length > 1) {
+        idx++;
+        continue;
+      }
+      const remaining = targetLength - total;
+      const useDuration = Math.min(scene.duration, remaining);
+      filled.push({ ...scene, _fillRepeat: (usage[scene.id] || 0) + 1, _fillPartial: useDuration < scene.duration, _fillUsed: true });
+      usage[scene.id] = (usage[scene.id] || 0) + 1;
+      total += useDuration;
+      lastId = scene.id;
+      idx++;
+    }
+    // If last scene overflows, trim its duration
+    if (filled.length > 0 && total > targetLength) {
+      const overflow = total - targetLength;
+      filled[filled.length - 1] = {
+        ...filled[filled.length - 1],
+        duration: filled[filled.length - 1].duration - overflow,
+        _fillPartial: true
+      };
+    }
+    return filled;
+  }
+
+  const assignScenesToCustomSegments = (scenes: Scene[]) => {
+    if (!customSegmentsEnabled || customSegments.length === 0) return scenes;
+    let allFilled = [];
+    for (let segIdx = 0; segIdx < customSegments.length; segIdx++) {
+      const seg = customSegments[segIdx];
+      const segScenes = scenes.filter(scene => scene.startTime >= seg.start && scene.endTime <= seg.end);
+      let segScenesWithSegment = segScenes.map(scene => ({ ...scene, segment: segIdx }));
+      if (fillGaps) {
+        const segLength = seg.end - seg.start;
+        segScenesWithSegment = fillSegmentToLength(segScenesWithSegment, segLength);
+        // Mark segment for display
+        segScenesWithSegment = segScenesWithSegment.map(s => ({ ...s, segment: segIdx }));
+      }
+      allFilled = allFilled.concat(segScenesWithSegment);
+    }
+    return allFilled;
+  };
+
   const applyFilters = (scenesToFilter: Scene[] = scenes) => {
-    const filtered = scenesToFilter.filter(scene => 
+    let filtered = scenesToFilter.filter(scene => 
       scene.duration >= minDuration && scene.duration <= maxDuration
     ).map(scene => ({
       ...scene,
@@ -129,7 +250,9 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
       endTime: scene.endTime - trimEnd,
       duration: scene.duration - trimStart - trimEnd
     })).filter(scene => scene.duration >= minFinalClipLength);
-    
+    if (customSegmentsEnabled) {
+      filtered = assignScenesToCustomSegments(filtered);
+    }
     setFilteredScenes(filtered);
     toast.success(`Filtered to ${filtered.length} scenes`);
   };
@@ -438,6 +561,29 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
     toast.success("Video download started!");
   };
 
+  const handleSegmentInputFocus = (idx: number, key: 'start' | 'end', value: number) => {
+    setEditingSegment({ idx, key });
+    setEditingValue(formatTime(value));
+  };
+
+  const handleSegmentInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditingValue(e.target.value);
+  };
+
+  const handleSegmentInputBlur = (idx: number, key: 'start' | 'end') => {
+    updateCustomSegment(idx, key, editingValue);
+    setEditingSegment(null);
+    setEditingValue('');
+  };
+
+  const handleSegmentInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number, key: 'start' | 'end') => {
+    if (e.key === 'Enter') {
+      updateCustomSegment(idx, key, editingValue);
+      setEditingSegment(null);
+      setEditingValue('');
+    }
+  };
+
   return (
     <div className="container mx-auto px-6 py-8">
       {/* Header */}
@@ -577,95 +723,233 @@ const VideoProcessor = ({ videoFile, videoUrl, onReset }: VideoProcessorProps) =
                 <CardTitle>Scene Filters</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                 <div>
-                   <label className="text-sm font-medium mb-2 block">
-                     Duration Range: {minDuration.toFixed(1)}s - {maxDuration.toFixed(1)}s
-                   </label>
-                   <div className="space-y-2">
-                     <input
-                       type="range"
-                       min="0.5"
-                       max="10"
-                       step="0.1"
-                       value={minDuration}
-                       onChange={(e) => setMinDuration(Number(e.target.value))}
-                       className="w-full"
-                     />
-                     <input
-                       type="range"
-                       min="1"
-                       max="30"
-                       step="0.1"
-                       value={maxDuration}
-                       onChange={(e) => setMaxDuration(Number(e.target.value))}
-                       className="w-full"
-                     />
-                   </div>
-                 </div>
-                
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Min Final Clip Length: {minFinalClipLength.toFixed(1)}s
-                  </label>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="3"
-                    step="0.1"
-                    value={minFinalClipLength}
-                    onChange={(e) => setMinFinalClipLength(Number(e.target.value))}
-                    className="w-full"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Filters out clips shorter than this after trimming
-                  </p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Segment Length: {segmentLength}s
-                  </label>
-                  <input
-                    type="range"
-                    min="60"
-                    max="300"
-                    step="30"
-                    value={segmentLength}
-                    onChange={(e) => setSegmentLength(Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
+                <TooltipProvider>
+                  {/* Custom Segments Toggle */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <Switch id="custom-segments-toggle" checked={customSegmentsEnabled} onCheckedChange={setCustomSegmentsEnabled} />
+                    <label htmlFor="custom-segments-toggle" className="text-sm font-medium">
+                      Custom Segments
+                    </label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        Enable to manually define custom segments with start and end times. Default is automatic segment length.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Trim Start: {trimStart.toFixed(1)}s
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value={trimStart}
-                    onChange={(e) => setTrimStart(Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
+                  {/* Custom Segments UI */}
+                  {customSegmentsEnabled && (
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium text-sm">Custom Segments</span>
+                        <Button size="icon" variant="outline" onClick={addCustomSegment} disabled={videoDuration === 0}>
+                          <Plus size={18} />
+                        </Button>
+                        <div className="flex items-center gap-1 ml-4">
+                          <Switch id="fill-gaps-toggle" checked={fillGaps} onCheckedChange={setFillGaps} />
+                          <label htmlFor="fill-gaps-toggle" className="text-xs">Fill Gaps</label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={14} /></span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              If enabled, segments will be filled to their full length by repeating clips as needed (never the same clip twice in a row).
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </div>
+                      {customSegments.length === 0 && (
+                        <div className="text-xs text-muted-foreground mb-2">No segments yet. Click + to add.</div>
+                      )}
+                      <div className="space-y-2">
+                        {customSegments.map((seg, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <span className="text-xs">Segment {idx + 1}:</span>
+                            <Input
+                              type="text"
+                              min={0}
+                              max={videoDuration}
+                              step={0.1}
+                              value={editingSegment && editingSegment.idx === idx && editingSegment.key === 'start' ? editingValue : formatTime(seg.start)}
+                              onFocus={() => handleSegmentInputFocus(idx, 'start', seg.start)}
+                              onChange={editingSegment && editingSegment.idx === idx && editingSegment.key === 'start' ? handleSegmentInputChange : (e) => updateCustomSegment(idx, 'start', e.target.value)}
+                              onBlur={() => handleSegmentInputBlur(idx, 'start')}
+                              onKeyDown={e => handleSegmentInputKeyDown(e, idx, 'start')}
+                              className="w-20 text-xs"
+                              aria-label={`Segment ${idx + 1} start`}
+                              pattern="^([0-9]+:[0-9]{1,2}(\.[0-9]+)?|[0-9]+(\.[0-9]+)?)$"
+                              inputMode="decimal"
+                            />
+                            <span className="text-xs">-</span>
+                            <Input
+                              type="text"
+                              min={0}
+                              max={videoDuration}
+                              step={0.1}
+                              value={editingSegment && editingSegment.idx === idx && editingSegment.key === 'end' ? editingValue : formatTime(seg.end)}
+                              onFocus={() => handleSegmentInputFocus(idx, 'end', seg.end)}
+                              onChange={editingSegment && editingSegment.idx === idx && editingSegment.key === 'end' ? handleSegmentInputChange : (e) => updateCustomSegment(idx, 'end', e.target.value)}
+                              onBlur={() => handleSegmentInputBlur(idx, 'end')}
+                              onKeyDown={e => handleSegmentInputKeyDown(e, idx, 'end')}
+                              className="w-20 text-xs"
+                              aria-label={`Segment ${idx + 1} end`}
+                              pattern="^([0-9]+:[0-9]{1,2}(\.[0-9]+)?|[0-9]+(\.[0-9]+)?)$"
+                              inputMode="decimal"
+                            />
+                            <Button size="icon" variant="ghost" onClick={() => removeCustomSegment(idx)} aria-label="Remove segment">
+                              <X size={16} />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Validation error */}
+                      {customSegmentsEnabled && (customSegmentError || validateCustomSegments(customSegments)) && (
+                        <div className="text-xs text-red-500 mt-1">
+                          {customSegmentError || validateCustomSegments(customSegments)}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Trim End: {trimEnd.toFixed(1)}s
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value={trimEnd}
-                    onChange={(e) => setTrimEnd(Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
+                  {/* Duration Range */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                      Duration Range: {minDuration.toFixed(1)}s - {maxDuration.toFixed(1)}s
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Only keep scenes within this duration range.
+                        </TooltipContent>
+                      </Tooltip>
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="10"
+                        step="0.1"
+                        value={minDuration}
+                        onChange={(e) => setMinDuration(Number(e.target.value))}
+                        className="w-full"
+                      />
+                      <input
+                        type="range"
+                        min="1"
+                        max="30"
+                        step="0.1"
+                        value={maxDuration}
+                        onChange={(e) => setMaxDuration(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
 
+                  {/* Min Final Clip Length */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                      Min Final Clip Length: {minFinalClipLength.toFixed(1)}s
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Filters out clips shorter than this after trimming.
+                        </TooltipContent>
+                      </Tooltip>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="3"
+                      step="0.1"
+                      value={minFinalClipLength}
+                      onChange={(e) => setMinFinalClipLength(Number(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Filters out clips shorter than this after trimming
+                    </p>
+                  </div>
+
+                  {/* Segment Length (hide if custom segments enabled) */}
+                  {!customSegmentsEnabled && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                        Segment Length: {segmentLength}s
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            The length of each segment for automatic splitting.
+                          </TooltipContent>
+                        </Tooltip>
+                      </label>
+                      <input
+                        type="range"
+                        min="60"
+                        max="300"
+                        step="30"
+                        value={segmentLength}
+                        onChange={(e) => setSegmentLength(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+
+                  {/* Trim Start */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                      Trim Start: {trimStart.toFixed(1)}s
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Remove this many seconds from the start of each scene.
+                        </TooltipContent>
+                      </Tooltip>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      value={trimStart}
+                      onChange={(e) => setTrimStart(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Trim End */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                      Trim End: {trimEnd.toFixed(1)}s
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Remove this many seconds from the end of each scene.
+                        </TooltipContent>
+                      </Tooltip>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      value={trimEnd}
+                      onChange={(e) => setTrimEnd(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </TooltipProvider>
                 <Button onClick={() => applyFilters()} className="w-full">
                   Apply Filters
                 </Button>

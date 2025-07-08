@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 interface Scene {
   id: string;
@@ -9,6 +10,7 @@ interface Scene {
   duration: number;
   thumbnail?: string;
   segment: number;
+  _fillRepeat?: number;
 }
 
 interface SceneTimelineProps {
@@ -114,82 +116,96 @@ const SceneTimeline = ({ scenes, videoUrl, onScenePreview }: SceneTimelineProps)
           </div>
 
           {/* Segment Groups */}
-          {Object.entries(groupedScenes)
-            .sort(([a], [b]) => parseInt(a) - parseInt(b))
-            .map(([segment, segmentScenes]) => (
-            <div key={segment} className="space-y-3">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm">
-                  Segment {parseInt(segment) + 1}
-                </h3>
-                <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
-                  {segmentScenes.length} scenes
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {segmentScenes.map((scene, index) => (
-                  <div
-                    key={scene.id}
-                    className={`
-                      border rounded-lg p-3 cursor-pointer transition-all duration-200
-                      ${selectedScene === scene.id 
-                        ? 'border-primary bg-primary/5 shadow-primary' 
-                        : 'border-border hover:border-primary/50 hover:shadow-md'
-                      }
-                      ${playingScene === scene.id ? 'animate-pulse' : ''}
-                    `}
-                    onClick={() => handleSceneClick(scene.id)}
-                  >
-                    {/* Scene thumbnail */}
-                    {scene.thumbnail && (
-                      <div className="mb-3">
-                        <img 
-                          src={scene.thumbnail} 
-                          alt={`Scene ${scenes.indexOf(scene) + 1} thumbnail`}
-                          className="w-full h-20 object-cover rounded border"
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">
-                        Scene {scenes.indexOf(scene) + 1}
-                      </span>
-                      <div className={`
-                        w-2 h-2 rounded-full
-                        ${getDurationColor(scene.duration)}
-                      `}></div>
-                    </div>
-                    
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div>Start: {formatTime(scene.startTime)}</div>
-                      <div>End: {formatTime(scene.endTime)}</div>
-                      <div className="font-medium">
-                        Duration: {scene.duration.toFixed(1)}s
-                      </div>
-                    </div>
-
-                    {selectedScene === scene.id && (
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            playScene(scene);
-                          }}
-                        >
-                          {playingScene === scene.id ? 'Playing...' : 'Preview Scene'}
-                        </Button>
-                      </div>
-                    )}
+          <TooltipProvider>
+            {Object.entries(groupedScenes)
+              .sort(([a], [b]) => parseInt(a) - parseInt(b))
+              .map(([segment, segmentScenes]) => (
+                <div key={segment} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-sm">
+                      Segment {parseInt(segment) + 1}
+                    </h3>
+                    <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
+                      {segmentScenes.length} scenes
+                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {segmentScenes.map((scene, index) => (
+                      <div
+                        key={scene.id + '-' + (scene._fillRepeat || 1) + '-' + index}
+                        className={`
+                          border rounded-lg p-3 cursor-pointer transition-all duration-200
+                          ${selectedScene === scene.id 
+                            ? 'border-primary bg-primary/5 shadow-primary' 
+                            : 'border-border hover:border-primary/50 hover:shadow-md'
+                          }
+                          ${playingScene === scene.id ? 'animate-pulse' : ''}
+                        `}
+                        onClick={() => handleSceneClick(scene.id)}
+                      >
+                        {/* Scene thumbnail */}
+                        {scene.thumbnail && (
+                          <div className="mb-3">
+                            <img 
+                              src={scene.thumbnail} 
+                              alt={`Scene ${scenes.indexOf(scene) + 1} thumbnail`}
+                              className="w-full h-20 object-cover rounded border"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium flex items-center gap-1">
+                            Scene {scenes.indexOf(scene) + 1}
+                            {scene._fillRepeat && scene._fillRepeat > 1 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="ml-1 bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-bold cursor-help">
+                                    x{scene._fillRepeat}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  This clip is used multiple times to fill the segment.
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </span>
+                          <div className={`
+                            w-2 h-2 rounded-full
+                            ${getDurationColor(scene.duration)}
+                          `}></div>
+                        </div>
+                        
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <div>Start: {formatTime(scene.startTime)}</div>
+                          <div>End: {formatTime(scene.endTime)}</div>
+                          <div className="font-medium">
+                            Duration: {scene.duration.toFixed(1)}s
+                          </div>
+                        </div>
+
+                        {selectedScene === scene.id && (
+                          <div className="mt-3 pt-3 border-t border-border">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playScene(scene);
+                              }}
+                            >
+                              {playingScene === scene.id ? 'Playing...' : 'Preview Scene'}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </TooltipProvider>
 
           {/* Summary */}
           <div className="bg-gradient-secondary rounded-lg p-4">

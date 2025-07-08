@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useDropzone } from 'react-dropzone';
 
 interface VideoUploadProps {
   onVideoUpload: (file: File) => void;
@@ -12,6 +13,7 @@ const VideoUpload = ({ onVideoUpload, onBack }: VideoUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [inputKey, setInputKey] = useState(0);
 
   const handleFileSelect = (file: File) => {
     if (!file.type.startsWith('video/')) {
@@ -31,6 +33,8 @@ const VideoUpload = ({ onVideoUpload, onBack }: VideoUploadProps) => {
       setIsUploading(false);
       onVideoUpload(file);
       toast.success("Video uploaded successfully!");
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setInputKey(k => k + 1); // force new input
     }, 1500);
   };
 
@@ -58,12 +62,28 @@ const VideoUpload = ({ onVideoUpload, onBack }: VideoUploadProps) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       handleFileSelect(files[0]);
+      e.target.value = '';
     }
   };
 
   const openFileDialog = () => {
+    if (fileInputRef.current) fileInputRef.current.value = '';
     fileInputRef.current?.click();
   };
+
+  const onDrop = (acceptedFiles: File[]) => {
+    if (acceptedFiles && acceptedFiles.length > 0) {
+      handleFileSelect(acceptedFiles[0]);
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'video/*': [] },
+    multiple: false,
+    maxFiles: 1,
+    noKeyboard: false,
+  });
 
   return (
     <div className="container mx-auto px-6 py-12">
@@ -85,21 +105,19 @@ const VideoUpload = ({ onVideoUpload, onBack }: VideoUploadProps) => {
         </div>
 
         {/* Upload Area */}
-        <Card className={`
-          border-2 border-dashed transition-all duration-300 cursor-pointer
-          ${isDragging 
-            ? 'border-primary bg-primary/5 shadow-glow' 
-            : 'border-border hover:border-primary/50 hover:bg-accent/50'
-          }
-          ${isUploading ? 'pointer-events-none opacity-75' : ''}
-        `}>
-          <CardContent 
-            className="p-12 text-center"
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onClick={openFileDialog}
-          >
+        <Card
+          {...getRootProps()}
+          className={`
+            border-2 border-dashed transition-all duration-300 cursor-pointer
+            ${isDragActive || isDragging 
+              ? 'border-primary bg-primary/5 shadow-glow' 
+              : 'border-border hover:border-primary/50 hover:bg-accent/50'
+            }
+            ${isUploading ? 'pointer-events-none opacity-75' : ''}
+          `}
+        >
+          <CardContent className="p-12 text-center">
+            <input {...getInputProps()} />
             {isUploading ? (
               <div className="space-y-6">
                 <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center animate-pulse">
@@ -173,15 +191,6 @@ const VideoUpload = ({ onVideoUpload, onBack }: VideoUploadProps) => {
             </p>
           </Card>
         </div>
-
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="video/*"
-          onChange={handleFileInput}
-          className="hidden"
-        />
       </div>
     </div>
   );

@@ -3,9 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 const SocialProof = () => {
   const stats = [
     { number: "10,000+", label: "Videos Processed" },
-    { number: "5,000+", label: "Happy Creators" },
-    { number: "99.9%", label: "Uptime" },
-    { number: "24/7", label: "Support" }
+    { number: "500+", label: "Happy Creators" },
+    { number: "3,200+", label: "Hours Saved for YouTubers" }
   ];
 
   const testimonials = [
@@ -33,15 +32,17 @@ const SocialProof = () => {
     <section className="py-24 bg-gradient-to-br from-accent/10 via-background to-accent/5">
       <div className="container mx-auto px-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-20">
-          {stats.map((stat, index) => (
-            <div key={index} className="text-center">
-              <div className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-                {stat.number}
+        <div className="flex flex-col items-center justify-center mb-20">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 w-full max-w-4xl mx-auto">
+            {stats.map((stat, index) => (
+              <div key={index} className="text-center">
+                <div className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+                  {stat.number}
+                </div>
+                <div className="text-muted-foreground text-sm">{stat.label}</div>
               </div>
-              <div className="text-muted-foreground text-sm">{stat.label}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Testimonials */}

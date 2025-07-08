@@ -12,7 +12,7 @@ const Footer = () => {
                 <span className="text-primary-foreground font-bold text-lg">🎬</span>
               </div>
               <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Video Splitter
+                ClipMixPRO
               </span>
             </div>
             <p className="text-muted-foreground">
@@ -56,7 +56,7 @@ const Footer = () => {
 
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-muted-foreground text-sm">
-            © 2024 Video Splitter. All rights reserved.
+            © 2024 ClipMixPRO. All rights reserved.
           </p>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link to="/privacy-policy" className="hover:text-foreground transition-colors">Privacy Policy</Link>

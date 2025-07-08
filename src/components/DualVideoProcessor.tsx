@@ -9,6 +9,8 @@ import SceneTimeline from "@/components/SceneTimeline";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Info } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 interface DualVideoProcessorProps {
   videoFiles: [File, File];
@@ -659,77 +661,114 @@ const DualVideoProcessor = ({ videoFiles, videoUrls, onReset }: DualVideoProcess
                 <CardTitle>Scene Filters</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                 <div>
-                   <label className="text-sm font-medium mb-2 block">
-                     Duration Range: {minDuration.toFixed(1)}s - {maxDuration.toFixed(1)}s
-                   </label>
-                   <div className="space-y-2">
-                     <input
-                       type="range"
-                       min="0.5"
-                       max="10"
-                       step="0.1"
-                       value={minDuration}
-                       onChange={(e) => setMinDuration(Number(e.target.value))}
-                       className="w-full"
-                     />
-                     <input
-                       type="range"
-                       min="1"
-                       max="30"
-                       step="0.1"
-                       value={maxDuration}
-                       onChange={(e) => setMaxDuration(Number(e.target.value))}
-                       className="w-full"
-                     />
-                   </div>
-                 </div>
-                
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Min Final Clip Length: {minFinalClipLength.toFixed(1)}s
-                  </label>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="3"
-                    step="0.1"
-                    value={minFinalClipLength}
-                    onChange={(e) => setMinFinalClipLength(Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
+                <TooltipProvider>
+                  {/* Duration Range */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                      Duration Range: {minDuration.toFixed(1)}s - {maxDuration.toFixed(1)}s
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Only keep scenes within this duration range.
+                        </TooltipContent>
+                      </Tooltip>
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="10"
+                        step="0.1"
+                        value={minDuration}
+                        onChange={(e) => setMinDuration(Number(e.target.value))}
+                        className="w-full"
+                      />
+                      <input
+                        type="range"
+                        min="1"
+                        max="30"
+                        step="0.1"
+                        value={maxDuration}
+                        onChange={(e) => setMaxDuration(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Trim Start: {trimStart.toFixed(1)}s
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value={trimStart}
-                    onChange={(e) => setTrimStart(Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
+                  {/* Min Final Clip Length */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                      Min Final Clip Length: {minFinalClipLength.toFixed(1)}s
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Filters out clips shorter than this after trimming.
+                        </TooltipContent>
+                      </Tooltip>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="3"
+                      step="0.1"
+                      value={minFinalClipLength}
+                      onChange={(e) => setMinFinalClipLength(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Trim End: {trimEnd.toFixed(1)}s
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value={trimEnd}
-                    onChange={(e) => setTrimEnd(Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
+                  {/* Trim Start */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                      Trim Start: {trimStart.toFixed(1)}s
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Remove this many seconds from the start of each scene.
+                        </TooltipContent>
+                      </Tooltip>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      value={trimStart}
+                      onChange={(e) => setTrimStart(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
 
+                  {/* Trim End */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                      Trim End: {trimEnd.toFixed(1)}s
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 cursor-pointer text-muted-foreground"><Info size={16} /></span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Remove this many seconds from the end of each scene.
+                        </TooltipContent>
+                      </Tooltip>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      value={trimEnd}
+                      onChange={(e) => setTrimEnd(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </TooltipProvider>
                 <Button onClick={() => applyFilters()} className="w-full">
                   Apply Filters
                 </Button>
