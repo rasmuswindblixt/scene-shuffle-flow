@@ -88,6 +88,7 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
+      allow_promotion_codes: true,
       success_url: `${origin}/app?success=true`,
       cancel_url: `${origin}/app?canceled=true`,
     });
