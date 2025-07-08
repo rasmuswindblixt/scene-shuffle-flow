@@ -70,7 +70,7 @@ serve(async (req) => {
       logStep("No existing customer found");
     }
 
-    const origin = req.headers.get("origin") || "https://lipflxccmarrnmksypmm.supabase.co";
+    const origin = req.headers.get("origin") || "https://clipmixpro.com";
     logStep("Creating checkout session", { origin });
 
     const session = await stripe.checkout.sessions.create({
