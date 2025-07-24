@@ -1,9 +1,9 @@
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Play, Shuffle, Download, Clock, Shield, Zap } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Zap, Shield, Download, Upload, Cpu, Check, ChevronRight, Play, CheckCircle, Shuffle, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import UserMenu from "@/components/UserMenu";
 import ContactForm from "@/components/ContactForm";
@@ -344,24 +344,15 @@ const Landing = () => {
               
               <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-primary/20 bg-black/10 backdrop-blur-sm">
                 {/* Video Container */}
-                <div className="relative aspect-video bg-black">
-                <video
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    console.error('Demo video load error:', e);
-                  }}
-                  onLoadStart={() => console.log('Video load started')}
-                  onCanPlay={() => console.log('Video can play')}
-                  onLoadedData={() => console.log('Video data loaded')}
-                >
-                  <source src="/src/assets/clipmixpro_demo_2.mov" type="video/quicktime" />
-                  <source src="/src/assets/clipmixpro_demo.mov" type="video/quicktime" />
-                  Your browser does not support the video tag.
-                </video>
+                <div className="relative aspect-video bg-gradient-to-br from-primary/20 to-primary/40 rounded-xl flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center mx-auto mb-4">
+                      <Play className="w-8 h-8 text-white ml-1" />
+                    </div>
+                    <p className="text-white text-lg font-medium">Demo Video</p>
+                    <p className="text-white/70 text-sm">See ClipMixPRO in action</p>
+                  </div>
+                </div>
               </div>
               
               {/* Decorative Border Glow */}
