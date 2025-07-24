@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { User, BarChart3, HelpCircle } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
-import SubscriptionManager from "@/components/SubscriptionManager";
+
 import ContactForm from "@/components/ContactForm";
 
 const Account = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, subscribed, subscriptionTier } = useAuth();
   const navigate = useNavigate();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
 
@@ -122,20 +122,16 @@ const Account = () => {
                     <div className="text-xs text-muted-foreground mt-1">Export Quality</div>
                   </div>
                 </div>
-                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                  <div className="flex items-center justify-center gap-2 text-green-700 dark:text-green-400">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium">Premium Active</span>
+                <div className={`p-3 rounded-lg border ${subscribed ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-muted border-border'}`}>
+                  <div className={`flex items-center justify-center gap-2 ${subscribed ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>
+                    <div className={`w-2 h-2 rounded-full ${subscribed ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></div>
+                    <span className="text-sm font-medium">{subscribed ? `${subscriptionTier} Active` : 'Free Plan'}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Enhanced Subscription Manager */}
-          <div className="mt-8">
-            <SubscriptionManager />
-          </div>
 
           {/* Subtle Support Button */}
           <div className="text-center mt-12">
