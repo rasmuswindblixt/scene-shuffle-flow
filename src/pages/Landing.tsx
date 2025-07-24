@@ -1,8 +1,10 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle, Play, Shuffle, Download, Clock, Shield, Zap } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import ContactForm from "@/components/ContactForm";
 
 // Import thumbnail images
@@ -17,6 +19,7 @@ import demoVideo from "@/assets/clipmixpro_demo_2.mov";
 
 const Landing = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
 
   const features = [
@@ -108,8 +111,11 @@ const Landing = () => {
             </nav>
 
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" onClick={() => navigate('/auth')}>
-                Log In
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate(user ? '/account' : '/auth')}
+              >
+                {user ? 'Account' : 'Log In'}
               </Button>
               <Button onClick={() => navigate('/app')} className="bg-gradient-primary hover:opacity-90">
                 Start Shuffling
@@ -532,4 +538,4 @@ const Landing = () => {
   );
 };
 
-export default Landing; 
+export default Landing;
