@@ -15,8 +15,7 @@ import thumb3 from "@/assets/thumb-3.jpeg";
 import thumb4 from "@/assets/thumb-4.jpeg";
 import thumb5 from "@/assets/thumb-5.jpeg";
 
-// Import demo video
-import demoVideo from "@/assets/clipmixpro_demo_2.mov";
+// Demo video path
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -354,14 +353,13 @@ const Landing = () => {
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     console.error('Demo video load error:', e);
-                    console.error('Video src:', demoVideo);
                   }}
                   onLoadStart={() => console.log('Video load started')}
                   onCanPlay={() => console.log('Video can play')}
                   onLoadedData={() => console.log('Video data loaded')}
                 >
-                  <source src={demoVideo} type="video/quicktime" />
-                  <source src={demoVideo} type="video/mp4" />
+                  <source src="/src/assets/clipmixpro_demo_2.mov" type="video/quicktime" />
+                  <source src="/src/assets/clipmixpro_demo.mov" type="video/quicktime" />
                   Your browser does not support the video tag.
                 </video>
               </div>
