@@ -348,7 +348,6 @@ const Landing = () => {
                     console.log('Demo video load error:', e);
                   }}
                 >
-                  <source src={demoVideo} type="video/mp4" />
                   <source src={demoVideo} type="video/quicktime" />
                   Your browser does not support the video tag.
                 </video>
