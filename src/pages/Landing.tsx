@@ -15,7 +15,8 @@ import thumb3 from "@/assets/thumb-3.jpeg";
 import thumb4 from "@/assets/thumb-4.jpeg";
 import thumb5 from "@/assets/thumb-5.jpeg";
 
-// Demo video path
+// Import demo video
+import demoVideo from "@/assets/clipmixpro_demo_2.mov?url";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -344,15 +345,19 @@ const Landing = () => {
               
               <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-primary/20 bg-black/10 backdrop-blur-sm">
                 {/* Video Container */}
-                <div className="relative aspect-video bg-gradient-to-br from-primary/20 to-primary/40 rounded-xl flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center mx-auto mb-4">
-                      <Play className="w-8 h-8 text-white ml-1" />
-                    </div>
-                    <p className="text-white text-lg font-medium">Demo Video</p>
-                    <p className="text-white/70 text-sm">See ClipMixPRO in action</p>
-                  </div>
-                </div>
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.error('Demo video load error:', e);
+                  }}
+                >
+                  <source src={demoVideo} type="video/quicktime" />
+                  Your browser does not support the video tag.
+                </video>
               </div>
               
               {/* Decorative Border Glow */}
