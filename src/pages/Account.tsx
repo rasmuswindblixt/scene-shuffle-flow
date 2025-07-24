@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import ContactForm from "@/components/ContactForm";
 const Account = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
 
   useEffect(() => {
@@ -135,7 +134,7 @@ const Account = () => {
 
           {/* Enhanced Subscription Manager */}
           <div className="mt-8">
-            <SubscriptionManager autoSubscribe={searchParams.get('subscribe') === 'true'} />
+            <SubscriptionManager />
           </div>
 
           {/* Subtle Support Button */}

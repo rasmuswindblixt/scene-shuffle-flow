@@ -7,14 +7,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Crown, CheckCircle2 } from 'lucide-react';
 
-interface SubscriptionManagerProps {
-  autoSubscribe?: boolean;
-}
-
-const SubscriptionManager = ({ autoSubscribe = false }: SubscriptionManagerProps) => {
+const SubscriptionManager = () => {
   const { user, session, subscribed, freeExportsUsed, subscriptionTier, subscriptionEnd, checkSubscription, loading } = useAuth();
   const [loadingButton, setLoadingButton] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    checkSubscription();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-md flex items-center justify-center py-12">
+        <span className="text-muted-foreground text-sm">Loading subscription status...</span>
+      </div>
+    );
+  }
 
   const handleSubscribe = async () => {
     if (!session) return;
@@ -44,24 +52,6 @@ const SubscriptionManager = ({ autoSubscribe = false }: SubscriptionManagerProps
       setLoadingButton(false);
     }
   };
-
-  useEffect(() => {
-    checkSubscription();
-  }, []);
-
-  useEffect(() => {
-    if (autoSubscribe && !subscribed && !loading && session) {
-      handleSubscribe();
-    }
-  }, [autoSubscribe, subscribed, loading, session, handleSubscribe]);
-
-  if (loading) {
-    return (
-      <div className="w-full max-w-md flex items-center justify-center py-12">
-        <span className="text-muted-foreground text-sm">Loading subscription status...</span>
-      </div>
-    );
-  }
 
   const handleManageSubscription = async () => {
     if (!session) return;

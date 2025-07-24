@@ -148,7 +148,7 @@ const VideoApp = () => {
                   <Button 
                     size="lg" 
                     className="w-full bg-gradient-primary hover:opacity-90 shadow-primary"
-                    onClick={() => navigate('/account?subscribe=true')}
+                    onClick={() => navigate('/checkout')}
                   >
                     Subscribe Now - $19/month
                   </Button>

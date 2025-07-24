@@ -8,6 +8,7 @@ import Landing from "./pages/Landing";
 import VideoApp from "./pages/App";
 import Auth from "./pages/Auth";
 import Account from "./pages/Account";
+import Checkout from "./pages/Checkout";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/app" element={<VideoApp />} />
             <Route path="/account" element={<Account />} />
+            <Route path="/checkout" element={<Checkout />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
