@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { HelpCircle } from "lucide-react";
+import UserMenu from "@/components/UserMenu";
 import ContactForm from "@/components/ContactForm";
 
 const VideoApp = () => {
@@ -108,9 +109,7 @@ const VideoApp = () => {
             </div>
             <h1 className="text-xl font-semibold cursor-pointer" onClick={() => navigate('/')}>ClipMixPRO</h1>
           </div>
-          <Button variant="outline" onClick={() => navigate('/account')}>
-            Account
-          </Button>
+          <UserMenu />
         </div>
       </div>
     </header>

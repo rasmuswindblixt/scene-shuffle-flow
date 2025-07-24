@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { User, BarChart3, HelpCircle } from "lucide-react";
+import UserMenu from "@/components/UserMenu";
 import SubscriptionManager from "@/components/SubscriptionManager";
 import ContactForm from "@/components/ContactForm";
 
@@ -45,9 +46,12 @@ const Account = () => {
               </div>
               <h1 className="text-xl font-semibold cursor-pointer hover:text-primary transition-colors" onClick={() => navigate('/')}>ClipMixPRO</h1>
             </div>
-            <Button variant="outline" onClick={() => navigate('/app')} className="hover:bg-primary/10 transition-colors border-primary/20">
-              Back to App
-            </Button>
+            <div className="flex items-center space-x-4">
+              <UserMenu />
+              <Button variant="outline" onClick={() => navigate('/app')} className="hover:bg-primary/10 transition-colors border-primary/20">
+                Back to App
+              </Button>
+            </div>
           </div>
         </div>
       </header>

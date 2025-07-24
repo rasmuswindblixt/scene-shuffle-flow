@@ -2,11 +2,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Play, Shuffle, Download, Clock, Shield, Zap, Menu } from "lucide-react";
+import { CheckCircle, Play, Shuffle, Download, Clock, Shield, Zap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import UserMenu from "@/components/UserMenu";
 import ContactForm from "@/components/ContactForm";
 
 // Import thumbnail images
@@ -114,27 +113,7 @@ const Landing = () => {
 
             <div className="flex items-center space-x-4">
               {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <Menu className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 bg-background border border-border">
-                    <DropdownMenuItem onClick={() => navigate('/account')}>
-                      Account
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/app')}>
-                      New project
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={async () => {
-                      await supabase.auth.signOut();
-                      navigate('/');
-                    }}>
-                      Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <UserMenu />
               ) : (
                 <Button variant="ghost" onClick={() => navigate('/auth')}>
                   Log In
