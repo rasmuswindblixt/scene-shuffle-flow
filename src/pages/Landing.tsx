@@ -357,7 +357,6 @@ const Landing = () => {
               
               {/* Decorative Border Glow */}
               <div className="absolute inset-0 rounded-2xl ring-1 ring-primary/30 pointer-events-none"></div>
-              </div>
             </div>
             
             {/* Features Below Video */}
