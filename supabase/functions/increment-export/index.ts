@@ -111,7 +111,7 @@ serve(async (req) => {
     }
 
     // Check export limit
-    if (!subscriber.subscribed && subscriber.free_exports_used >= 3) {
+    if (!subscriber.subscribed && subscriber.free_exports_used >= 1) {
       console.log('[INCREMENT-EXPORT] Export limit reached');
       return new Response(JSON.stringify({
         error: "Free export limit reached. Please subscribe to continue.",

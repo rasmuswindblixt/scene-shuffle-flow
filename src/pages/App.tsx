@@ -2,21 +2,18 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import VideoUpload from "@/components/VideoUpload";
 import VideoProcessor from "@/components/VideoProcessor";
-import VideoModeSelector from "@/components/VideoModeSelector";
-import DualVideoUpload from "@/components/DualVideoUpload";
-import DualVideoProcessor from "@/components/DualVideoProcessor";
-import Header from "@/components/Header";
-import SubscriptionManager from "@/components/SubscriptionManager";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { HelpCircle } from "lucide-react";
+import ContactForm from "@/components/ContactForm";
 
-const App = () => {
-  const [mode, setMode] = useState<'select' | 'single' | 'dual'>('select');
-  const [uploadedVideo, setUploadedVideo] = useState<File | null>(null);
-  const [uploadedVideos, setUploadedVideos] = useState<[File, File] | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoUrls, setVideoUrls] = useState<[string, string] | null>(null);
-  const { user, loading, checkSubscription } = useAuth();
+const VideoApp = () => {
+  const [uploadedVideos, setUploadedVideos] = useState<File[]>([]);
+  const [videoUrls, setVideoUrls] = useState<string[]>([]);
+  const [isContactFormOpen, setIsContactFormOpen] = useState(false);
+  const { user, loading, subscribed, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
@@ -27,12 +24,25 @@ const App = () => {
     }
   }, [user, loading, navigate]);
 
+  // Cleanup video URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      videoUrls.forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          // Ignore errors if URL was already revoked
+        }
+      });
+    };
+  }, [videoUrls]);
+
   useEffect(() => {
     // Handle Stripe success/cancel redirects
     if (searchParams.get('success') === 'true') {
       toast({
         title: "Payment Successful!",
-        description: "Your subscription is now active. Enjoy unlimited exports!",
+        description: "Your subscription is now active. Start shuffling videos!",
       });
       checkSubscription();
       // Clean up URL
@@ -48,44 +58,28 @@ const App = () => {
     }
   }, [searchParams, toast, checkSubscription]);
 
-  const handleModeSelect = (selectedMode: 'single' | 'dual') => {
-    setMode(selectedMode);
-  };
-
-  const handleSingleVideoUpload = (file: File) => {
-    setUploadedVideo(file);
-    const url = URL.createObjectURL(file);
-    setVideoUrl(url);
-  };
-
-  const handleDualVideosUpload = (files: [File, File]) => {
+  const handleVideoUpload = (files: File[]) => {
     setUploadedVideos(files);
-    const urls: [string, string] = [
-      URL.createObjectURL(files[0]),
-      URL.createObjectURL(files[1])
-    ];
+    const urls = files.map(file => URL.createObjectURL(file));
     setVideoUrls(urls);
   };
 
   const handleReset = () => {
-    // Clean up object URLs
-    if (videoUrl) {
-      URL.revokeObjectURL(videoUrl);
-    }
-    if (videoUrls) {
-      videoUrls.forEach(url => URL.revokeObjectURL(url));
-    }
+    // Reset state first
+    setUploadedVideos([]);
+    setVideoUrls([]);
     
-    // Reset all state
-    setMode('select');
-    setUploadedVideo(null);
-    setUploadedVideos(null);
-    setVideoUrl(null);
-    setVideoUrls(null);
-  };
-
-  const handleBackToModeSelect = () => {
-    setMode('select');
+    // Clean up object URLs after a small delay to allow components to unmount
+    setTimeout(() => {
+      videoUrls.forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          // Ignore errors if URL was already revoked
+          console.log('URL already revoked:', error);
+        }
+      });
+    }, 100);
   };
 
   if (loading) {
@@ -103,47 +97,110 @@ const App = () => {
     return null; // Will redirect to /auth
   }
 
+  // Simple header component
+  const SimpleHeader = () => (
+    <header className="border-b border-border backdrop-blur-sm bg-background/80 sticky top-0 z-50">
+      <div className="container mx-auto px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center cursor-pointer" onClick={() => navigate('/')}>
+              <span className="text-white font-bold text-lg">C</span>
+            </div>
+            <h1 className="text-xl font-semibold cursor-pointer" onClick={() => navigate('/')}>ClipMixPRO</h1>
+          </div>
+          <Button variant="outline" onClick={() => navigate('/account')}>
+            Account
+          </Button>
+        </div>
+      </div>
+    </header>
+  );
+
+  // Subscription paywall
+  if (!subscribed) {
+    return (
+      <div className="min-h-screen bg-background">
+        <SimpleHeader />
+        <main className="container mx-auto px-6 py-12">
+          <div className="max-w-2xl mx-auto text-center space-y-8">
+            <div>
+              <h2 className="text-3xl font-bold mb-4">ClipMixPRO</h2>
+              <p className="text-xl text-muted-foreground mb-8">
+                Mix and shuffle video scenes to avoid YouTube's reused content policies
+              </p>
+            </div>
+            
+            <Card className="card-hover bg-card/80 backdrop-blur border-primary/20">
+              <CardHeader>
+                <CardTitle className="gradient-text">Subscription Required</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-muted-foreground">
+                  ClipMixPRO is a paid service. Subscribe to start mixing your videos.
+                </p>
+                <ul className="text-left space-y-2">
+                  <li>✅ Automatic scene detection</li>
+                  <li>✅ Smart 1-6 second filtering</li>
+                  <li>✅ Intelligent shuffling algorithm</li>
+                  <li>✅ HD video export</li>
+                  <li>✅ Unlimited video processing</li>
+                </ul>
+                <div className="pt-4">
+                  <Button 
+                    size="lg" 
+                    className="w-full bg-gradient-primary hover:opacity-90 shadow-primary"
+                    onClick={() => navigate('/account')}
+                  >
+                    Subscribe Now - $19/month
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <Header />
-      <main className="pt-16">
-        {mode === 'select' && (
-          <div className="container mx-auto px-6 py-12">
-            <div className="grid lg:grid-cols-2 gap-8 items-start">
-              <VideoModeSelector onModeSelect={handleModeSelect} />
-              <div className="flex justify-center">
-                <SubscriptionManager />
-              </div>
+      <SimpleHeader />
+      <main className="pt-6">
+        {uploadedVideos.length === 0 && (
+          <>
+            <VideoUpload onVideoUpload={handleVideoUpload} />
+            
+            {/* Subtle Support Button */}
+            <div className="text-center mt-8">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsContactFormOpen(true)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <HelpCircle className="w-4 h-4 mr-2" />
+                Need help? Contact Support
+              </Button>
             </div>
-          </div>
+          </>
         )}
         
-        {mode === 'single' && !uploadedVideo && (
-          <VideoUpload onVideoUpload={handleSingleVideoUpload} onBack={handleBackToModeSelect} />
-        )}
-        
-        {mode === 'dual' && !uploadedVideos && (
-          <DualVideoUpload onVideosUpload={handleDualVideosUpload} onBack={handleBackToModeSelect} />
-        )}
-        
-        {uploadedVideo && videoUrl && (
+        {uploadedVideos.length > 0 && videoUrls.length > 0 && (
           <VideoProcessor 
-            videoFile={uploadedVideo} 
-            videoUrl={videoUrl} 
-            onReset={handleReset}
-          />
-        )}
-        
-        {uploadedVideos && videoUrls && (
-          <DualVideoProcessor 
             videoFiles={uploadedVideos} 
             videoUrls={videoUrls} 
             onReset={handleReset}
           />
         )}
       </main>
+
+      {/* Contact Form Modal */}
+      <ContactForm 
+        isOpen={isContactFormOpen} 
+        onClose={() => setIsContactFormOpen(false)} 
+      />
     </div>
   );
 };
 
-export default App;
+export default VideoApp;

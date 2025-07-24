@@ -135,17 +135,17 @@ const SubscriptionManager = () => {
                 Free Plan
               </p>
               <p className="text-sm text-muted-foreground mb-3">
-                You have {Math.max(0, 3 - freeExportsUsed)} free exports remaining
+                You have {Math.max(0, 1 - freeExportsUsed)} free exports remaining
               </p>
               <div className="bg-muted rounded-lg p-3 mb-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium">Free Exports</span>
-                  <span className="text-sm font-bold">{Math.min(3, freeExportsUsed)}/3</span>
+                  <span className="text-sm font-bold">{Math.min(1, freeExportsUsed)}/1</span>
                 </div>
                 <div className="w-full bg-background rounded-full h-2">
                   <div 
                     className="bg-primary h-2 rounded-full transition-all duration-300" 
-                    style={{ width: `${(Math.min(3, freeExportsUsed) / 3) * 100}%` }}
+                    style={{ width: `${(Math.min(1, freeExportsUsed) / 1) * 100}%` }}
                   ></div>
                 </div>
               </div>

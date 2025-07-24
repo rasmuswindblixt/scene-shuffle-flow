@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp",
+    },
   },
   plugins: [
     react(),
@@ -18,5 +22,12 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  optimizeDeps: {
+    include: ['@ffmpeg/ffmpeg'],
+  },
+  build: {
+    // Öka limit om du får "asset size limit" errors
+    assetsInlineLimit: 4096000,
   },
 }));

@@ -28,16 +28,79 @@ export const useAuth = () => {
   return context;
 };
 
+const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const TEST_USER = {
+  email: 'admin',
+  id: 'dev-admin',
+};
+const TEST_USER_2 = {
+  email: 'admin_2',
+  id: 'dev-admin-2',
+};
+const TEST_USER_KEY = 'dev_test_user_active';
+const TEST_USER_2_KEY = 'dev_test_user_2_active';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Check localStorage for test users on initialization
+  const initialTestUser = isDev && typeof window !== 'undefined' && window.localStorage.getItem(TEST_USER_KEY) === '1';
+  const initialTestUser2 = isDev && typeof window !== 'undefined' && window.localStorage.getItem(TEST_USER_2_KEY) === '1';
+  
+  // Determine initial user and subscription status
+  const getInitialUser = () => {
+    if (initialTestUser) return TEST_USER as any;
+    if (initialTestUser2) return TEST_USER_2 as any;
+    return null;
+  };
+  
+  const getInitialSubscription = () => {
+    if (initialTestUser) return true; // admin is premium
+    if (initialTestUser2) return true; // admin_2 is now also premium (FULL ACCESS)
+    return false;
+  };
+  
+  const getInitialTier = () => {
+    if (initialTestUser) return 'premium'; // admin is premium
+    if (initialTestUser2) return 'premium'; // admin_2 is now also premium (FULL ACCESS)
+    return null;
+  };
+
+  const [user, setUser] = useState<User | null>(getInitialUser());
   const [session, setSession] = useState<Session | null>(null);
-  const [subscribed, setSubscribed] = useState(false);
+  const [subscribed, setSubscribed] = useState(getInitialSubscription());
   const [freeExportsUsed, setFreeExportsUsed] = useState(0);
-  const [subscriptionTier, setSubscriptionTier] = useState<string | null>(null);
+  const [subscriptionTier, setSubscriptionTier] = useState<string | null>(getInitialTier());
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Priority effect: Handle test users if flags are set
+  React.useEffect(() => {
+    if (isDev && typeof window !== 'undefined') {
+      const testUser1Active = window.localStorage.getItem(TEST_USER_KEY) === '1';
+      const testUser2Active = window.localStorage.getItem(TEST_USER_2_KEY) === '1';
+      
+      if (testUser1Active) {
+        setUser(TEST_USER as any);
+        setSubscribed(true);
+        setSubscriptionTier('premium');
+        setFreeExportsUsed(0);
+        setSession(null);
+        setLoading(false);
+      } else if (testUser2Active) {
+        setUser(TEST_USER_2 as any);
+        setSubscribed(true); // FULL ACCESS - admin_2 now has premium subscription
+        setSubscriptionTier('premium'); // FULL ACCESS - admin_2 now has premium tier
+        setFreeExportsUsed(0);
+        setSession(null);
+        setLoading(false);
+      }
+    }
+  }, []);
+
   const checkSubscription = async () => {
+    // Skip if any test user is active
+    if (isDev && typeof window !== 'undefined' && 
+        (window.localStorage.getItem(TEST_USER_KEY) === '1' || 
+         window.localStorage.getItem(TEST_USER_2_KEY) === '1')) return;
     if (!session) return;
     
     try {
@@ -109,6 +172,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     setLoading(true);
+    // Skip Supabase session if any test user is active
+    if (isDev && typeof window !== 'undefined' && 
+        (window.localStorage.getItem(TEST_USER_KEY) === '1' || 
+         window.localStorage.getItem(TEST_USER_2_KEY) === '1')) {
+      setLoading(false);
+      return;
+    }
     console.log('[AUTH] useEffect running. Initializing AuthContext.');
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -145,6 +215,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    if (isDev && email === 'admin' && password === 'eqsZvy6d89!') {
+      setUser(TEST_USER as any);
+      setSubscribed(true);
+      setSubscriptionTier('premium');
+      setFreeExportsUsed(0);
+      setSession(null);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(TEST_USER_KEY, '1');
+      }
+      return { error: null };
+    }
+    
+    if (isDev && email === 'admin_2' && password === 'eqsZvy6d89!') {
+      setUser(TEST_USER_2 as any);
+      setSubscribed(true); // FULL ACCESS - admin_2 now has premium subscription
+      setSubscriptionTier('premium'); // FULL ACCESS - admin_2 now has premium tier
+      setFreeExportsUsed(0);
+      setSession(null);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(TEST_USER_2_KEY, '1');
+      }
+      return { error: null };
+    }
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -166,6 +259,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    if (isDev && typeof window !== 'undefined') {
+      const testUser1Active = window.localStorage.getItem(TEST_USER_KEY) === '1';
+      const testUser2Active = window.localStorage.getItem(TEST_USER_2_KEY) === '1';
+      
+      if (testUser1Active || testUser2Active) {
+        window.localStorage.removeItem(TEST_USER_KEY);
+        window.localStorage.removeItem(TEST_USER_2_KEY);
+        setUser(null);
+        setSubscribed(false);
+        setSubscriptionTier(null);
+        setFreeExportsUsed(0);
+        setSession(null);
+        return;
+      }
+    }
     await supabase.auth.signOut();
   };
 

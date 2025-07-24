@@ -1,6 +1,7 @@
 import { useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Play, Pause, Volume2, Volume1, VolumeX } from "lucide-react";
 
 interface VideoPreviewProps {
   videoUrl: string;
@@ -108,6 +109,9 @@ const VideoPreview = forwardRef<VideoPreviewRef, VideoPreviewProps>(({ videoUrl,
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onEnded={() => setIsPlaying(false)}
+            onError={(e) => {
+              console.log('Video preview load error (this is normal during cleanup):', e);
+            }}
           />
           
           {/* Overlay controls */}
@@ -136,9 +140,11 @@ const VideoPreview = forwardRef<VideoPreviewRef, VideoPreviewProps>(({ videoUrl,
                   onClick={togglePlay}
                   className="text-white hover:bg-white/20 p-2"
                 >
-                  <span className="text-lg">
-                    {isPlaying ? '⏸️' : '▶️'}
-                  </span>
+                  {isPlaying ? (
+                    <Pause className="w-4 h-4" />
+                  ) : (
+                    <Play className="w-4 h-4" />
+                  )}
                 </Button>
 
                 <div className="text-white text-sm">
@@ -155,9 +161,13 @@ const VideoPreview = forwardRef<VideoPreviewRef, VideoPreviewProps>(({ videoUrl,
                     onClick={toggleMute}
                     className="text-white hover:bg-white/20 p-1"
                   >
-                    <span className="text-sm">
-                      {isMuted || volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
-                    </span>
+                    {isMuted || volume === 0 ? (
+                      <VolumeX className="w-4 h-4" />
+                    ) : volume < 0.5 ? (
+                      <Volume1 className="w-4 h-4" />
+                    ) : (
+                      <Volume2 className="w-4 h-4" />
+                    )}
                   </Button>
                   
                   <input

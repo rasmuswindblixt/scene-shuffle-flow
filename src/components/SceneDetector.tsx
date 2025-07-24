@@ -1,55 +1,187 @@
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
+import { Scene } from "@/types/scene";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-
-interface Scene {
-  id: string;
-  startTime: number;
-  endTime: number;
-  duration: number;
-  thumbnail?: string;
-  segment: number;
-}
 
 interface SceneDetectorProps {
   videoUrl: string;
   onScenesDetected: (scenes: Scene[]) => void;
   isAnalyzing: boolean;
   segmentLength: number;
+  frameInterval: number;
+  delayMs: number;
 }
 
-const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing, segmentLength }: SceneDetectorProps) => {
+// Improved values for better scene detection
+const BATCH_SIZE = 60; // Process 1 minute at a time
+const DIFFERENCE_THRESHOLD = 0.15; // Lower threshold to catch more subtle changes
+const MIN_SCENE_DURATION = 0.5;
+const FRAME_INTERVAL = 0.5; // Check every 0.5 seconds for better detection
+const DELAY_MS = 25; // Reduced delay for faster processing
+
+const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetectorProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [detectionProgress, setDetectionProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [seekTimeouts, setSeekTimeouts] = useState(0);
-  const MAX_TIMEOUTS = 5;
-
-  useEffect(() => {
-    if (isAnalyzing && videoRef.current) {
-      startSceneDetection();
-    }
-  }, [isAnalyzing, videoUrl]);
 
   const generateThumbnail = async (video: HTMLVideoElement, time: number): Promise<string> => {
     return new Promise((resolve) => {
       const thumbnailCanvas = document.createElement('canvas');
-      const thumbnailCtx = thumbnailCanvas.getContext('2d')!;
-      
+      const thumbnailCtx = thumbnailCanvas.getContext('2d', { willReadFrequently: true })!;
       thumbnailCanvas.width = 160;
       thumbnailCanvas.height = 90;
       
-      const seekHandler = () => {
-        thumbnailCtx.drawImage(video, 0, 0, thumbnailCanvas.width, thumbnailCanvas.height);
-        resolve(thumbnailCanvas.toDataURL('image/jpeg', 0.8));
+      // Add timeout for thumbnail generation
+      const timeoutId = setTimeout(() => {
         video.removeEventListener('seeked', seekHandler);
+        // Return a placeholder on timeout
+        resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+      }, 2000);
+      
+      const seekHandler = () => {
+        clearTimeout(timeoutId);
+        try {
+          thumbnailCtx.drawImage(video, 0, 0, thumbnailCanvas.width, thumbnailCanvas.height);
+          const dataUrl = thumbnailCanvas.toDataURL('image/jpeg', 0.7);
+          video.removeEventListener('seeked', seekHandler);
+          resolve(dataUrl);
+        } catch (error) {
+          video.removeEventListener('seeked', seekHandler);
+          resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+        }
       };
+      
+      // Check if already at correct time
+      if (Math.abs(video.currentTime - time) < 0.1) {
+        clearTimeout(timeoutId);
+        try {
+          thumbnailCtx.drawImage(video, 0, 0, thumbnailCanvas.width, thumbnailCanvas.height);
+          const dataUrl = thumbnailCanvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
+        } catch (error) {
+          resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+        }
+        return;
+      }
       
       video.addEventListener('seeked', seekHandler);
       video.currentTime = time;
     });
+  };
+
+  const calculateFrameDifference = (frame1: ImageData, frame2: ImageData): number => {
+    if (!frame1 || !frame2 || frame1.data.length !== frame2.data.length) {
+      return 1.0;
+    }
+
+    let totalDiff = 0;
+    const pixels = frame1.data.length / 4;
+
+    for (let i = 0; i < frame1.data.length; i += 4) {
+      const r1 = frame1.data[i];
+      const g1 = frame1.data[i + 1];
+      const b1 = frame1.data[i + 2];
+      const r2 = frame2.data[i];
+      const g2 = frame2.data[i + 1];
+      const b2 = frame2.data[i + 2];
+
+      const diff = Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
+      totalDiff += diff;
+    }
+
+    return totalDiff / (pixels * 3 * 255);
+  };
+
+  const processBatch = async (
+    video: HTMLVideoElement,
+    ctx: CanvasRenderingContext2D,
+    startTime: number,
+    endTime: number,
+    lastFrameData: ImageData | null,
+    lastSceneStart: number,
+    existingScenes: Scene[]
+  ) => {
+    let scenes = [...existingScenes];
+    let currentFrameData = lastFrameData;
+    let sceneStart = lastSceneStart;
+
+    for (let time = startTime; time < endTime; time += FRAME_INTERVAL) {
+      setCurrentTime(time);
+      setDetectionProgress((time / video.duration) * 100);
+
+      // Handle potential seeking issues with timeout
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            video.removeEventListener('seeked', seekHandler);
+            reject(new Error(`Seek timeout at ${time}s`));
+          }, 3000);
+
+          const seekHandler = () => {
+            clearTimeout(timeout);
+            video.removeEventListener('seeked', seekHandler);
+            resolve();
+          };
+
+          if (Math.abs(video.currentTime - time) < 0.1) {
+            clearTimeout(timeout);
+            resolve();
+          } else {
+            video.addEventListener('seeked', seekHandler);
+            video.currentTime = time;
+          }
+        });
+      } catch (error) {
+        console.warn(`Skipping frame at ${time}s due to seeking error:`, error);
+        continue;
+      }
+
+      // Draw frame to canvas
+      try {
+        ctx.drawImage(video, 0, 0, ctx.canvas.width, ctx.canvas.height);
+      } catch (error) {
+        console.warn(`Error drawing frame at ${time}s:`, error);
+        continue;
+      }
+
+      const newFrameData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+      if (currentFrameData) {
+        const difference = calculateFrameDifference(currentFrameData, newFrameData);
+
+        if (difference > DIFFERENCE_THRESHOLD) {
+          // Scene change detected
+          const sceneDuration = time - sceneStart;
+
+          if (sceneDuration >= MIN_SCENE_DURATION) {
+            const thumbnail = await generateThumbnail(video, sceneStart);
+            
+            scenes.push({
+              id: `scene-${scenes.length}`,
+              startTime: sceneStart,
+              endTime: time,
+              duration: sceneDuration,
+              difference,
+              thumbnail,
+              segment: Math.floor(sceneStart / BATCH_SIZE)
+            });
+          }
+
+          sceneStart = time;
+        }
+      }
+
+      currentFrameData = newFrameData;
+
+      // Add delay to prevent blocking
+      if (DELAY_MS > 0) {
+        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      }
+    }
+
+    return { scenes, lastFrameData: currentFrameData, lastSceneStart: sceneStart };
   };
 
   const startSceneDetection = async () => {
@@ -57,202 +189,118 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing, segmentLength 
     const canvas = canvasRef.current;
     
     if (!video || !canvas) return;
-
-    const ctx = canvas.getContext('2d');
+    
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     // Wait for video metadata to load
-    await new Promise((resolve) => {
-      video.onloadedmetadata = resolve;
+    await new Promise<void>(resolve => {
+      if (video.readyState >= 2) resolve();
+      else video.addEventListener('loadedmetadata', () => resolve(), { once: true });
     });
 
-    const duration = video.duration;
-    const scenes: Scene[] = [];
-    const frameInterval = 0.5; // Check every 0.5 seconds
+    canvas.width = 320;  // Higher resolution for better scene change detection
+    canvas.height = 180;
+
+    let scenes: Scene[] = [];
     let lastFrameData: ImageData | null = null;
     let lastSceneStart = 0;
+    const duration = video.duration;
 
-    canvas.width = 160;
-    canvas.height = 90;
-
-    let timeouts = 0;
-
-    for (let time = 0; time <= duration; time += frameInterval) {
-      video.load(); // Chrome workaround
-      video.currentTime = time;
-      setCurrentTime(time);
-      setDetectionProgress((time / duration) * 100);
-      let seeked = false;
-      const seekPromise = new Promise((resolve) => {
-        video.onseeked = () => { seeked = true; resolve(true); };
-        video.onerror = () => { resolve(false); };
-      });
-      // Timeout after 2s
-      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2000, false));
-      const ok = await Promise.race([seekPromise, timeoutPromise]);
-      if (!seeked) {
-        timeouts++;
-        setSeekTimeouts(timeouts);
-        console.warn(`Seek timeout at ${time.toFixed(2)}s (Chrome bug or unsupported video)`);
-        if (timeouts >= MAX_TIMEOUTS) {
-          toast.error("Video analysis failed: This video may have an unsupported format for Chrome. Try converting to MP4 (H.264) or use Safari.");
-          return;
-        }
-        continue; // skip this frame
-      }
-
-      // Draw current frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const currentFrameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      if (lastFrameData) {
-        const difference = calculateFrameDifference(lastFrameData, currentFrameData);
-        
-        // If significant change detected (scene cut)
-        if (difference > 0.3) {
-          const sceneEnd = time;
-          const sceneDuration = sceneEnd - lastSceneStart;
-          
-          if (sceneDuration > 0.5) { // Minimum scene length
-            const segment = Math.floor(lastSceneStart / segmentLength);
-            const thumbnailTime = lastSceneStart + sceneDuration / 2;
-            const thumbnail = await generateThumbnail(video, thumbnailTime);
-            
-            scenes.push({
-              id: `scene-${scenes.length}`,
-              startTime: lastSceneStart,
-              endTime: sceneEnd,
-              duration: sceneDuration,
-              segment: segment,
-              thumbnail: thumbnail
-            });
-          }
-          
-          lastSceneStart = time;
-        }
-      }
-
-      lastFrameData = currentFrameData;
-
-      // Small delay to prevent blocking
-      await new Promise(resolve => setTimeout(resolve, 10));
-    }
-
-    // Add final scene
-    if (duration - lastSceneStart > 0.5) {
-      const segment = Math.floor(lastSceneStart / segmentLength);
-      const sceneDuration = duration - lastSceneStart;
-      const thumbnailTime = lastSceneStart + sceneDuration / 2;
-      const thumbnail = await generateThumbnail(video, thumbnailTime);
+    try {
+      console.log(`Starting scene detection for ${duration.toFixed(1)}s video`);
       
-      scenes.push({
-        id: `scene-${scenes.length}`,
-        startTime: lastSceneStart,
-        endTime: duration,
-        duration: sceneDuration,
-        segment: segment,
-        thumbnail: thumbnail
-      });
-    }
+      // Process video in small batches
+      for (let startTime = 0; startTime < duration; startTime += BATCH_SIZE) {
+        const endTime = Math.min(startTime + BATCH_SIZE, duration);
+        
+        const result = await processBatch(
+          video,
+          ctx,
+          startTime,
+          endTime,
+          lastFrameData,
+          lastSceneStart,
+          scenes
+        );
+        
+        scenes = result.scenes;
+        lastFrameData = result.lastFrameData;
+        lastSceneStart = result.lastSceneStart;
 
-    // If no scenes detected, create artificial scenes every 3-5 seconds
-    if (scenes.length === 0) {
-      for (let time = 0; time < duration; time += 3 + Math.random() * 2) {
-        const endTime = Math.min(time + 2 + Math.random() * 3, duration);
-        const segment = Math.floor(time / segmentLength);
-        const sceneDuration = endTime - time;
-        const thumbnailTime = time + sceneDuration / 2;
-        const thumbnail = await generateThumbnail(video, thumbnailTime);
+        // Clear some memory after each batch
+        if (lastFrameData) {
+          lastFrameData = null;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+
+      // Add final scene
+      if (lastSceneStart < duration - MIN_SCENE_DURATION) {
+        const finalDuration = duration - lastSceneStart;
+        const thumbnail = await generateThumbnail(video, lastSceneStart);
         
         scenes.push({
           id: `scene-${scenes.length}`,
-          startTime: time,
-          endTime: endTime,
-          duration: sceneDuration,
-          segment: segment,
-          thumbnail: thumbnail
+          startTime: lastSceneStart,
+          endTime: duration,
+          duration: finalDuration,
+          difference: 0.5,
+          thumbnail,
+          segment: Math.floor(lastSceneStart / BATCH_SIZE)
         });
-        
-        time = endTime;
       }
-    }
 
-    onScenesDetected(scenes);
-    setDetectionProgress(100);
-  };
-
-  const calculateFrameDifference = (frame1: ImageData, frame2: ImageData): number => {
-    const data1 = frame1.data;
-    const data2 = frame2.data;
-    let diff = 0;
-    const totalPixels = data1.length / 4;
-
-    for (let i = 0; i < data1.length; i += 4) {
-      const r1 = data1[i], g1 = data1[i + 1], b1 = data1[i + 2];
-      const r2 = data2[i], g2 = data2[i + 1], b2 = data2[i + 2];
+      console.log(`Scene detection completed: ${scenes.length} scenes found`);
       
-      const pixelDiff = Math.sqrt(
-        Math.pow(r1 - r2, 2) + 
-        Math.pow(g1 - g2, 2) + 
-        Math.pow(b1 - b2, 2)
-      ) / (255 * Math.sqrt(3));
+      setDetectionProgress(100);
+      onScenesDetected(scenes);
       
-      diff += pixelDiff;
+    } catch (error) {
+      console.error('Scene detection error:', error);
+      toast.error(`Scene detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    return diff / totalPixels;
   };
 
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+  useEffect(() => {
+    if (isAnalyzing && videoUrl) {
+      startSceneDetection();
+    }
+  }, [isAnalyzing, videoUrl]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3">
-          <span className="text-2xl">🔍</span>
-          Scene Detection Engine
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isAnalyzing && (
-          <div className="space-y-4">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">
-                Analyzing frame changes at {formatTime(currentTime)}
-              </p>
-              <Progress value={detectionProgress} className="w-full" />
-              <p className="text-xs text-muted-foreground mt-1">
-                {detectionProgress.toFixed(1)}% complete
-              </p>
+    <div className="space-y-4">
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        className="hidden"
+        muted
+        preload="metadata"
+        onError={(e) => {
+          console.log('Scene detector video load error (this is normal during cleanup):', e);
+        }}
+      />
+      <canvas ref={canvasRef} className="hidden" />
+      
+      {isAnalyzing && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Scene Detection Progress</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Progress value={detectionProgress} className="w-full" />
+            <div className="text-sm text-muted-foreground text-center">
+              {detectionProgress.toFixed(1)}% complete
+              {currentTime > 0 && (
+                <span className="ml-2">
+                  ({Math.floor(currentTime / 60)}:{(currentTime % 60).toFixed(0).padStart(2, '0')})
+                </span>
+              )}
             </div>
-            
-            <div className="bg-secondary/50 rounded-lg p-4 text-center">
-              <p className="text-sm font-medium mb-2">Detection Algorithm</p>
-              <p className="text-xs text-muted-foreground">
-                Comparing consecutive frames for visual changes • 
-                Threshold: 30% difference • 
-                Minimum scene: 0.5s
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Hidden video and canvas for analysis */}
-        <div className="hidden">
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            muted
-            crossOrigin="anonymous"
-          />
-          <canvas ref={canvasRef} />
-        </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 
