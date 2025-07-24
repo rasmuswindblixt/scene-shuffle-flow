@@ -345,10 +345,15 @@ const Landing = () => {
                   playsInline
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    console.log('Demo video load error:', e);
+                    console.error('Demo video load error:', e);
+                    console.error('Video src:', demoVideo);
                   }}
+                  onLoadStart={() => console.log('Video load started')}
+                  onCanPlay={() => console.log('Video can play')}
+                  onLoadedData={() => console.log('Video data loaded')}
                 >
                   <source src={demoVideo} type="video/quicktime" />
+                  <source src={demoVideo} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
               </div>
