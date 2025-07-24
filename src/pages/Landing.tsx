@@ -15,13 +15,15 @@ import thumb3 from "@/assets/thumb-3.jpeg";
 import thumb4 from "@/assets/thumb-4.jpeg";
 import thumb5 from "@/assets/thumb-5.jpeg";
 
-// Import demo video
-import demoVideo from "@/assets/clipmixpro_demo_2.mov?url";
+// Demo videos are served from public folder
+const demoVideoMp4 = "/clipmixpro_demo_2.mp4";
+const demoVideoMov = "/clipmixpro_demo_2.mov";
 
 const Landing = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(true);
 
   const features = [
     {
@@ -344,19 +346,43 @@ const Landing = () => {
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20 rounded-2xl blur-3xl scale-110 opacity-40"></div>
               
               <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-primary/20 bg-black/10 backdrop-blur-sm">
+                {/* Loading State */}
+                {videoLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-purple-900/50 to-blue-900/50 z-10">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-white text-lg">Loading demo video...</p>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Video Container */}
                 <video
                   autoPlay
                   muted
                   loop
                   playsInline
-                  className="w-full h-full object-cover"
+                  className="w-full aspect-video object-cover"
+                  style={{ minHeight: '400px' }}
                   onError={(e) => {
                     console.error('Demo video load error:', e);
+                    setVideoLoading(false);
                   }}
+                  onLoadStart={() => {
+                    console.log('Video loading started');
+                    setVideoLoading(true);
+                  }}
+                  onCanPlay={() => {
+                    console.log('Video can start playing');
+                    setVideoLoading(false);
+                  }}
+                  preload="metadata"
                 >
-                  <source src={demoVideo} type="video/quicktime" />
-                  Your browser does not support the video tag.
+                  <source src={demoVideoMp4} type="video/mp4" />
+                  <source src={demoVideoMov} type="video/quicktime" />
+                  <div className="flex items-center justify-center h-96 bg-gradient-to-br from-purple-900/50 to-blue-900/50">
+                    <p className="text-white text-lg">Your browser does not support video playback.</p>
+                  </div>
                 </video>
               </div>
               
