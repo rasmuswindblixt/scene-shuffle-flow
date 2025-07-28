@@ -147,7 +147,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('Direct database subscription result:', subscriber);
       if (subscriber) {
-        setSubscribed(subscriber.subscribed || false);
+        // Use subscribed field if available, otherwise fall back to subscription_status
+        const isSubscribed = subscriber.subscribed || subscriber.subscription_status === 'Active';
+        setSubscribed(isSubscribed);
         setFreeExportsUsed(subscriber.free_exports_used || 0);
         setSubscriptionTier(subscriber.subscription_tier);
         setSubscriptionEnd(subscriber.subscription_end);

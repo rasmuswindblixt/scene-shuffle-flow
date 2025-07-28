@@ -48,7 +48,8 @@ serve(async (req) => {
       const customerId = subscription.customer;
       const cancelAtPeriodEnd = subscription.cancel_at_period_end;
       const status = cancelAtPeriodEnd ? "Cancelled" : "Active";
-      logStep("Subscription event", { customerId, status });
+      const subscribed = status === "Active"; // Add this line
+      logStep("Subscription event", { customerId, status, subscribed });
 
       // Find user by stripe_customer_id
       const { data: subscriber, error } = await supabase
@@ -63,9 +64,13 @@ serve(async (req) => {
 
       await supabase
         .from("subscribers")
-        .update({ subscription_status: status })
+        .update({ 
+          subscription_status: status,
+          subscribed: subscribed, // Add this line
+          updated_at: new Date().toISOString() // Add timestamp
+        })
         .eq("stripe_customer_id", customerId);
-      logStep("Updated subscription_status", { email: subscriber.email, status });
+      logStep("Updated subscription_status and subscribed", { email: subscriber.email, status, subscribed });
     }
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object;
@@ -73,7 +78,11 @@ serve(async (req) => {
       logStep("Subscription deleted", { customerId });
       await supabase
         .from("subscribers")
-        .update({ subscription_status: "Cancelled" })
+        .update({ 
+          subscription_status: "Cancelled",
+          subscribed: false, // Add this line
+          updated_at: new Date().toISOString() // Add timestamp
+        })
         .eq("stripe_customer_id", customerId);
     }
     return new Response("ok", { status: 200 });
