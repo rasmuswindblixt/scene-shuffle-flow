@@ -96,11 +96,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const checkSubscription = async (sessionParam?: Session | null) => {
+  const checkSubscription = async (sessionParam?: Session | null, retryCount = 0) => {
     // Use the passed session or fall back to state
     const currentSession = sessionParam || session;
     console.log('[AUTH] checkSubscription called, session exists:', !!currentSession);
     console.log('[AUTH] Current user email:', currentSession?.user?.email);
+    console.log('[AUTH] Retry count:', retryCount);
     
     // Skip if any test user is active
     if (isDev && typeof window !== 'undefined' && 
@@ -111,7 +112,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     if (!currentSession?.user?.email) {
-      console.log('[AUTH] No session or user email available for subscription check');
+      // If no session and retry count is less than 3, wait and retry
+      if (retryCount < 3) {
+        console.log('[AUTH] No session available, will retry in 500ms...');
+        setTimeout(() => {
+          checkSubscription(sessionParam, retryCount + 1);
+        }, 500);
+        return;
+      }
+      console.log('[AUTH] No session or user email available after retries');
       return;
     }
     
