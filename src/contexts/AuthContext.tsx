@@ -194,12 +194,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session);
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
+          console.log('[AUTH] User logged in, will check subscription...');
           setLoading(true);
-          checkSubscription().finally(() => setLoading(false));
+          // Use setTimeout to avoid blocking the auth flow
+          setTimeout(() => {
+            checkSubscription().finally(() => setLoading(false));
+          }, 100);
         } else {
+          console.log('[AUTH] No user session, resetting subscription state');
           setSubscribed(false);
           setFreeExportsUsed(0);
           setSubscriptionTier(null);
@@ -212,12 +218,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // THEN check for existing session
     setLoading(true);
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[AUTH] Initial session check:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        console.log('[AUTH] Initial session has user, will check subscription...');
         setLoading(true);
-        checkSubscription().finally(() => setLoading(false));
+        // Use setTimeout to avoid race conditions
+        setTimeout(() => {
+          checkSubscription().finally(() => setLoading(false));
+        }, 100);
       } else {
+        console.log('[AUTH] No initial session found');
         setLoading(false);
       }
     });
