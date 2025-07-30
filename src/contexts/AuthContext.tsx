@@ -13,8 +13,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  checkSubscription: () => Promise<void>;
-  checkSubscriptionDirect: () => Promise<void>;
+  checkSubscription: (sessionParam?: Session | null) => Promise<void>;
+  checkSubscriptionDirect: (sessionParam?: Session | null) => Promise<void>;
   updateFreeExportsUsed: (count: number) => void;
 }
 
@@ -96,9 +96,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const checkSubscription = async () => {
-    console.log('[AUTH] checkSubscription called, session exists:', !!session);
-    console.log('[AUTH] Current user email:', session?.user?.email);
+  const checkSubscription = async (sessionParam?: Session | null) => {
+    // Use the passed session or fall back to state
+    const currentSession = sessionParam || session;
+    console.log('[AUTH] checkSubscription called, session exists:', !!currentSession);
+    console.log('[AUTH] Current user email:', currentSession?.user?.email);
     
     // Skip if any test user is active
     if (isDev && typeof window !== 'undefined' && 
@@ -108,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    if (!session?.user?.email) {
+    if (!currentSession?.user?.email) {
       console.log('[AUTH] No session or user email available for subscription check');
       return;
     }
@@ -118,14 +120,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Try the edge function first
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${currentSession.access_token}`,
         },
       });
 
       if (error) {
         console.error('[AUTH] Error checking subscription via edge function:', error);
         // Fallback to direct database query
-        return await checkSubscriptionDirect();
+        return await checkSubscriptionDirect(currentSession);
       }
 
       console.log('[AUTH] Subscription check result:', data);
@@ -136,27 +138,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('[AUTH] Error checking subscription:', error);
       // Fallback to direct database query
-      await checkSubscriptionDirect();
+      await checkSubscriptionDirect(currentSession);
     }
   };
 
-  const checkSubscriptionDirect = async () => {
-    if (!session?.user?.email) return;
+  const checkSubscriptionDirect = async (sessionParam?: Session | null) => {
+    const currentSession = sessionParam || session;
+    if (!currentSession?.user?.email) return;
     
     try {
-      console.log('Checking subscription directly from database for:', session.user.email);
+      console.log('[AUTH] Checking subscription directly from database for:', currentSession.user.email);
       const { data: subscriber, error } = await supabase
         .from("subscribers")
         .select("*")
-        .eq("email", session.user.email)
+        .eq("email", currentSession.user.email)
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching subscriber directly:', error);
+        console.error('[AUTH] Error fetching subscriber directly:', error);
         return;
       }
 
-      console.log('Direct database subscription result:', subscriber);
+      console.log('[AUTH] Direct database subscription result:', subscriber);
       if (subscriber) {
         setSubscribed(subscriber.subscribed || false);
         setFreeExportsUsed(subscriber.free_exports_used || 0);
@@ -170,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSubscriptionEnd(null);
       }
     } catch (error) {
-      console.error('Error in direct subscription check:', error);
+      console.error('[AUTH] Error in direct subscription check:', error);
     }
   };
 
@@ -202,7 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(true);
           // Use setTimeout to avoid blocking the auth flow
           setTimeout(() => {
-            checkSubscription().finally(() => setLoading(false));
+            checkSubscription(session).finally(() => setLoading(false));
           }, 100);
         } else {
           console.log('[AUTH] No user session, resetting subscription state');
@@ -226,7 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(true);
         // Use setTimeout to avoid race conditions
         setTimeout(() => {
-          checkSubscription().finally(() => setLoading(false));
+          checkSubscription(session).finally(() => setLoading(false));
         }, 100);
       } else {
         console.log('[AUTH] No initial session found');
@@ -241,7 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (session?.user?.email && !loading) {
       console.log('[AUTH] Session available, triggering subscription check for:', session.user.email);
-      checkSubscription();
+      checkSubscription(session);
     }
   }, [session?.user?.email]);
 
