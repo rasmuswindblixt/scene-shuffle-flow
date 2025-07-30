@@ -97,11 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const checkSubscription = async (sessionParam?: Session | null, retryCount = 0) => {
-    // Use the passed session or fall back to state
-    const currentSession = sessionParam || session;
-    console.log('[AUTH] checkSubscription called, session exists:', !!currentSession);
-    console.log('[AUTH] Current user email:', currentSession?.user?.email);
-    console.log('[AUTH] Retry count:', retryCount);
+    console.log('[AUTH] checkSubscription called, retry count:', retryCount);
     
     // Skip if any test user is active
     if (isDev && typeof window !== 'undefined' && 
@@ -111,13 +107,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
+    // Get current session directly from Supabase instead of relying on state
+    let currentSession = sessionParam;
+    if (!currentSession) {
+      console.log('[AUTH] No session parameter, getting fresh session from Supabase...');
+      const { data: { session: freshSession }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('[AUTH] Error getting fresh session:', error);
+        return;
+      }
+      currentSession = freshSession;
+    }
+    
+    console.log('[AUTH] Using session exists:', !!currentSession);
+    console.log('[AUTH] Current user email:', currentSession?.user?.email);
+    
     if (!currentSession?.user?.email) {
       // If no session and retry count is less than 3, wait and retry
       if (retryCount < 3) {
-        console.log('[AUTH] No session available, will retry in 500ms...');
+        console.log('[AUTH] No session available, will retry in 1000ms...');
         setTimeout(() => {
-          checkSubscription(sessionParam, retryCount + 1);
-        }, 500);
+          checkSubscription(null, retryCount + 1);
+        }, 1000);
         return;
       }
       console.log('[AUTH] No session or user email available after retries');
@@ -125,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
-      console.log('[AUTH] Attempting subscription check via edge function');
+      console.log('[AUTH] Attempting subscription check via edge function for:', currentSession.user.email);
       // Try the edge function first
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
