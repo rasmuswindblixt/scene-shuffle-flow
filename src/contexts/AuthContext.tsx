@@ -97,13 +97,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const checkSubscription = async () => {
+    console.log('[AUTH] checkSubscription called, session exists:', !!session);
+    console.log('[AUTH] Current user email:', session?.user?.email);
+    
     // Skip if any test user is active
     if (isDev && typeof window !== 'undefined' && 
         (window.localStorage.getItem(TEST_USER_KEY) === '1' || 
-         window.localStorage.getItem(TEST_USER_2_KEY) === '1')) return;
-    if (!session) return;
+         window.localStorage.getItem(TEST_USER_2_KEY) === '1')) {
+      console.log('[AUTH] Skipping subscription check - test user active');
+      return;
+    }
+    
+    if (!session) {
+      console.log('[AUTH] No session available for subscription check');
+      return;
+    }
     
     try {
+      console.log('[AUTH] Attempting subscription check via edge function');
       // Try the edge function first
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
@@ -112,18 +123,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('Error checking subscription via edge function:', error);
+        console.error('[AUTH] Error checking subscription via edge function:', error);
         // Fallback to direct database query
         return await checkSubscriptionDirect();
       }
 
-      console.log('Subscription check result:', data);
+      console.log('[AUTH] Subscription check result:', data);
       setSubscribed(data.subscribed || false);
       setFreeExportsUsed(data.free_exports_used || 0);
       setSubscriptionTier(data.subscription_tier);
       setSubscriptionEnd(data.subscription_end);
     } catch (error) {
-      console.error('Error checking subscription:', error);
+      console.error('[AUTH] Error checking subscription:', error);
       // Fallback to direct database query
       await checkSubscriptionDirect();
     }
