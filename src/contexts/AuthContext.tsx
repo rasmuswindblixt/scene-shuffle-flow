@@ -108,8 +108,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    if (!session) {
-      console.log('[AUTH] No session available for subscription check');
+    if (!session?.user?.email) {
+      console.log('[AUTH] No session or user email available for subscription check');
       return;
     }
     
@@ -236,6 +236,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Separate effect to check subscription when session becomes available
+  useEffect(() => {
+    if (session?.user?.email && !loading) {
+      console.log('[AUTH] Session available, triggering subscription check for:', session.user.email);
+      checkSubscription();
+    }
+  }, [session?.user?.email]);
 
   const signIn = async (email: string, password: string) => {
     if (isDev && email === 'admin' && password === 'eqsZvy6d89!') {
