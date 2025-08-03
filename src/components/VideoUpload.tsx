@@ -68,20 +68,20 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
         continue;
       }
 
-      if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
-        toast.error(`${file.name} is too large (max 2GB)`);
+      if (file.size > 5 * 1024 * 1024 * 1024) { // 5GB limit
+        toast.error(`${file.name} is too large (max 5GB)`);
         continue;
       }
 
-      // Check duration limit (30 minutes = 1800 seconds)
+      // Check duration limit (40 minutes = 2400 seconds)
       const video = document.createElement('video');
       video.src = URL.createObjectURL(file);
       
       try {
         await new Promise<void>((resolve, reject) => {
           video.onloadedmetadata = () => {
-            if (video.duration > 1800) {
-              toast.error(`${file.name} is too long (max 30 minutes)`);
+            if (video.duration > 2400) {
+              toast.error(`${file.name} is too long (max 40 minutes)`);
               URL.revokeObjectURL(video.src);
               reject(new Error('Video too long'));
             } else {
@@ -166,7 +166,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
         <div className="text-center">
           <h2 className="text-3xl font-bold mb-4">Upload Your Videos</h2>
           <p className="text-muted-foreground">
-            Upload 1-2 videos to mix and shuffle their scenes together (max 30 minutes each)
+            Upload 1-2 videos to mix and shuffle their scenes together (max 40 minutes each)
           </p>
         </div>
 
@@ -226,7 +226,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
                     Drag and drop your video here, or click to browse
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Supports: MP4, AVI, MOV, MKV, WebM • Max: 2GB, 30 minutes
+                    Supports: MP4, AVI, MOV, MKV, WebM • Max: 5GB, 40 minutes
                   </p>
                 </div>
                 <Button size="lg" variant="outline">

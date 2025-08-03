@@ -305,7 +305,7 @@ const Landing = () => {
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
-              { step: "01", title: "Upload Video", desc: "Drag and drop your video file or paste a YouTube URL. We support all major formats up to 30 minutes." },
+              { step: "01", title: "Upload Video", desc: "Simply upload your video file. We support all major formats up to 40 minutes." },
               { step: "02", title: "AI Analysis", desc: "Our advanced AI detects scene changes, filters clips to 1-6 seconds, and applies smart shuffle algorithms." },
               { step: "03", title: "Download Result", desc: "Get your copyright-safe, uniquely shuffled video in HD quality ready for immediate upload." }
             ].map((step, index) => (
@@ -397,7 +397,7 @@ const Landing = () => {
                   <Zap className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="font-semibold mb-2">Lightning Fast</h3>
-                <p className="text-sm text-muted-foreground">Process 30-minute videos in under 2 minutes</p>
+                <p className="text-sm text-muted-foreground">Process 40-minute videos in under 5 minutes</p>
               </div>
               
               <div className="text-center p-6 rounded-xl bg-card/50 backdrop-blur border border-primary/10">

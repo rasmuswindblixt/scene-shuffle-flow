@@ -23,6 +23,10 @@ serve(async (req) => {
     return new Response("Missing Stripe secrets", { status: 500 });
   }
 
+  const stripe = new Stripe(stripeSecret, {
+    apiVersion: "2023-10-16",
+  });
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -33,7 +37,7 @@ serve(async (req) => {
   try {
     const sig = req.headers.get("stripe-signature");
     const body = await req.text();
-    event = Stripe.webhooks.constructEvent(body, sig!, webhookSecret);
+    event = stripe.webhooks.constructEvent(body, sig!, webhookSecret);
   } catch (err) {
     logStep("Webhook signature verification failed", { error: err.message });
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
