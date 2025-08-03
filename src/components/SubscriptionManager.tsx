@@ -153,7 +153,11 @@ const SubscriptionManager = () => {
             
             <div className="border rounded-lg p-4 bg-gradient-to-br from-purple-50 to-blue-50">
               <h4 className="font-semibold text-lg mb-2">Premium Plan</h4>
-              <p className="text-2xl font-bold mb-1">$12.99<span className="text-sm font-normal">/month</span></p>
+              <div className="mb-1">
+                <p className="text-sm line-through text-muted-foreground">$19.95/month</p>
+                <p className="text-2xl font-bold text-green-600">$12.95<span className="text-sm font-normal text-foreground">/month</span></p>
+                <p className="text-xs text-orange-600 font-medium">🔥 Limited Time Offer</p>
+              </div>
               <ul className="text-sm space-y-1 mb-3">
                 <li>✓ Unlimited video uploads</li>
                 <li>✓ AI-powered scene detection</li>

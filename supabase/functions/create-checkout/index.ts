@@ -81,7 +81,7 @@ serve(async (req) => {
           price_data: {
             currency: "usd",
             product_data: { name: "Video Splitter Premium" },
-            unit_amount: 1299, // $12.99 in cents
+            unit_amount: 1295, // $12.95 in cents
             recurring: { interval: "month" },
           },
           quantity: 1,

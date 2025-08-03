@@ -473,7 +473,11 @@ const Landing = () => {
             <Card className="max-w-lg mx-auto card-hover bg-card/80 backdrop-blur border-primary/20">
               <CardContent className="p-8">
                 <div className="text-center mb-6">
-                  <div className="text-4xl font-bold gradient-text mb-2">$19/month</div>
+                  <div className="mb-2">
+                    <div className="text-lg line-through text-muted-foreground">$19.95/month</div>
+                    <div className="text-4xl font-bold gradient-text">$12.95/month</div>
+                    <div className="text-sm text-orange-600 font-medium">🔥 Limited Time Offer</div>
+                  </div>
                   <p className="text-muted-foreground">Unlimited video processing</p>
                 </div>
                 <ul className="text-left space-y-3 mb-8">
