@@ -36,14 +36,29 @@ serve(async (req) => {
   let event;
   try {
     const sig = req.headers.get("stripe-signature");
+    if (!sig) {
+      logStep("Missing stripe-signature header");
+      return new Response("Missing stripe-signature header", { 
+        status: 400, 
+        headers: corsHeaders 
+      });
+    }
+    
     const body = await req.text();
-    event = stripe.webhooks.constructEvent(body, sig!, webhookSecret);
+    logStep("Webhook received", { signature: sig.substring(0, 20) + "..." });
+    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+    logStep("Webhook signature verified", { eventType: event.type });
   } catch (err) {
     logStep("Webhook signature verification failed", { error: err.message });
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    return new Response(`Webhook Error: ${err.message}`, { 
+      status: 400, 
+      headers: corsHeaders 
+    });
   }
 
   try {
+    logStep("Processing webhook event", { type: event.type, id: event.id });
+    
     if (
       event.type === "customer.subscription.created" ||
       event.type === "customer.subscription.updated"
@@ -61,37 +76,86 @@ serve(async (req) => {
         .select("email")
         .eq("stripe_customer_id", customerId)
         .maybeSingle();
-      if (error || !subscriber) {
+      
+      if (error) {
+        logStep("Database error when finding subscriber", { customerId, error: error.message });
+        return new Response("Database error", { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+      
+      if (!subscriber) {
         logStep("No subscriber found for customer", { customerId });
-        return new Response("No subscriber found", { status: 200 });
+        return new Response("No subscriber found", { 
+          status: 200, 
+          headers: corsHeaders 
+        });
       }
 
-      await supabase
+      const { error: updateError } = await supabase
         .from("subscribers")
         .update({ 
           subscription_status: status,
-          subscribed: subscribed, // Add this line
-          updated_at: new Date().toISOString() // Add timestamp
+          subscribed: subscribed,
+          updated_at: new Date().toISOString()
         })
         .eq("stripe_customer_id", customerId);
+        
+      if (updateError) {
+        logStep("Database error when updating subscriber", { customerId, error: updateError.message });
+        return new Response("Database update error", { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+      
       logStep("Updated subscription_status and subscribed", { email: subscriber.email, status, subscribed });
     }
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object;
       const customerId = subscription.customer;
       logStep("Subscription deleted", { customerId });
-      await supabase
+      
+      const { error: deleteError } = await supabase
         .from("subscribers")
         .update({ 
           subscription_status: "Cancelled",
-          subscribed: false, // Add this line
-          updated_at: new Date().toISOString() // Add timestamp
+          subscribed: false,
+          updated_at: new Date().toISOString()
         })
         .eq("stripe_customer_id", customerId);
+        
+      if (deleteError) {
+        logStep("Database error when cancelling subscription", { customerId, error: deleteError.message });
+        return new Response("Database update error", { 
+          status: 500, 
+          headers: corsHeaders 
+        });
+      }
+      
+      logStep("Subscription cancelled successfully", { customerId });
     }
-    return new Response("ok", { status: 200 });
+    
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object;
+      const customerId = invoice.customer;
+      logStep("Payment failed for customer", { customerId, invoiceId: invoice.id });
+      
+      // Optionally handle payment failures - you could send notifications, etc.
+      // For now, just log it
+      logStep("Payment failure logged", { customerId });
+    }
+    
+    return new Response("ok", { 
+      status: 200, 
+      headers: corsHeaders 
+    });
   } catch (err) {
     logStep("Error handling event", { error: err.message });
-    return new Response(`Webhook handler error: ${err.message}`, { status: 500 });
+    return new Response(`Webhook handler error: ${err.message}`, { 
+      status: 500, 
+      headers: corsHeaders 
+    });
   }
 }); 
