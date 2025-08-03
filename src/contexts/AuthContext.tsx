@@ -13,8 +13,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  checkSubscription: () => Promise<void>;
-  checkSubscriptionDirect: () => Promise<void>;
+  checkSubscription: (sessionParam?: Session | null) => Promise<void>;
+  checkSubscriptionDirect: (sessionParam?: Session | null) => Promise<void>;
   updateFreeExportsUsed: (count: number) => void;
 }
 
@@ -96,56 +96,90 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const checkSubscription = async () => {
+  const checkSubscription = async (sessionParam?: Session | null, retryCount = 0) => {
+    console.log('[AUTH] checkSubscription called, retry count:', retryCount);
+    
     // Skip if any test user is active
     if (isDev && typeof window !== 'undefined' && 
         (window.localStorage.getItem(TEST_USER_KEY) === '1' || 
-         window.localStorage.getItem(TEST_USER_2_KEY) === '1')) return;
-    if (!session) return;
+         window.localStorage.getItem(TEST_USER_2_KEY) === '1')) {
+      console.log('[AUTH] Skipping subscription check - test user active');
+      return;
+    }
+    
+    // Get current session directly from Supabase instead of relying on state
+    let currentSession = sessionParam;
+    if (!currentSession) {
+      console.log('[AUTH] No session parameter, getting fresh session from Supabase...');
+      const { data: { session: freshSession }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('[AUTH] Error getting fresh session:', error);
+        return;
+      }
+      currentSession = freshSession;
+    }
+    
+    console.log('[AUTH] Using session exists:', !!currentSession);
+    console.log('[AUTH] Current user email:', currentSession?.user?.email);
+    
+    if (!currentSession?.user?.email) {
+      // If no session and retry count is less than 3, wait and retry
+      if (retryCount < 3) {
+        console.log('[AUTH] No session available, will retry in 1000ms...');
+        setTimeout(() => {
+          checkSubscription(null, retryCount + 1);
+        }, 1000);
+        return;
+      }
+      console.log('[AUTH] No session or user email available after retries');
+      return;
+    }
     
     try {
+      console.log('[AUTH] Attempting subscription check via edge function for:', currentSession.user.email);
       // Try the edge function first
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${currentSession.access_token}`,
         },
       });
 
       if (error) {
-        console.error('Error checking subscription via edge function:', error);
+        console.error('[AUTH] Error checking subscription via edge function:', error);
         // Fallback to direct database query
-        return await checkSubscriptionDirect();
+        return await checkSubscriptionDirect(currentSession);
       }
 
-      console.log('Subscription check result:', data);
+      console.log('[AUTH] Subscription check result:', data);
       setSubscribed(data.subscribed || false);
       setFreeExportsUsed(data.free_exports_used || 0);
       setSubscriptionTier(data.subscription_tier);
       setSubscriptionEnd(data.subscription_end);
     } catch (error) {
-      console.error('Error checking subscription:', error);
+      console.error('[AUTH] Error checking subscription:', error);
       // Fallback to direct database query
-      await checkSubscriptionDirect();
+      await checkSubscriptionDirect(currentSession);
     }
   };
 
-  const checkSubscriptionDirect = async () => {
-    if (!session?.user?.email) return;
+  const checkSubscriptionDirect = async (sessionParam?: Session | null) => {
+    const currentSession = sessionParam || session;
+    if (!currentSession?.user?.email) return;
     
     try {
-      console.log('Checking subscription directly from database for:', session.user.email);
+      console.log('[AUTH] Checking subscription directly from database for:', currentSession.user.email);
       const { data: subscriber, error } = await supabase
         .from("subscribers")
         .select("*")
-        .eq("email", session.user.email)
+        .eq("email", currentSession.user.email)
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching subscriber directly:', error);
+        console.error('[AUTH] Error fetching subscriber directly:', error);
         return;
       }
 
-      console.log('Direct database subscription result:', subscriber);
+      console.log('[AUTH] Direct database subscription result:', subscriber);
       if (subscriber) {
         // Use subscribed field if available, otherwise fall back to subscription_status
         const isSubscribed = subscriber.subscribed || subscriber.subscription_status === 'Active';
@@ -161,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSubscriptionEnd(null);
       }
     } catch (error) {
-      console.error('Error in direct subscription check:', error);
+      console.error('[AUTH] Error in direct subscription check:', error);
     }
   };
 
@@ -185,12 +219,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session);
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
+          console.log('[AUTH] User logged in, will check subscription...');
           setLoading(true);
-          checkSubscription().finally(() => setLoading(false));
+          // Use setTimeout to avoid blocking the auth flow
+          setTimeout(() => {
+            checkSubscription(session).finally(() => setLoading(false));
+          }, 100);
         } else {
+          console.log('[AUTH] No user session, resetting subscription state');
           setSubscribed(false);
           setFreeExportsUsed(0);
           setSubscriptionTier(null);
@@ -203,18 +243,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // THEN check for existing session
     setLoading(true);
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[AUTH] Initial session check:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        console.log('[AUTH] Initial session has user, will check subscription...');
         setLoading(true);
-        checkSubscription().finally(() => setLoading(false));
+        // Use setTimeout to avoid race conditions
+        setTimeout(() => {
+          checkSubscription(session).finally(() => setLoading(false));
+        }, 100);
       } else {
+        console.log('[AUTH] No initial session found');
         setLoading(false);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Separate effect to check subscription when session becomes available
+  useEffect(() => {
+    if (session?.user?.email && !loading) {
+      console.log('[AUTH] Session available, triggering subscription check for:', session.user.email);
+      checkSubscription(session);
+    }
+  }, [session?.user?.email]);
 
   const signIn = async (email: string, password: string) => {
     if (isDev && email === 'admin' && password === 'eqsZvy6d89!') {

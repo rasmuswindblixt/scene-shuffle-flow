@@ -3,15 +3,27 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, BarChart3, HelpCircle } from "lucide-react";
+import { User, BarChart3, HelpCircle, RefreshCw } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 
 import ContactForm from "@/components/ContactForm";
 
 const Account = () => {
-  const { user, loading, subscribed, subscriptionTier } = useAuth();
+  const { user, loading, subscribed, subscriptionTier, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefreshSubscription = async () => {
+    setRefreshing(true);
+    try {
+      await checkSubscription();
+    } catch (error) {
+      console.error('Error refreshing subscription:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -123,9 +135,20 @@ const Account = () => {
                   </div>
                 </div>
                 <div className={`p-3 rounded-lg border ${subscribed ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-muted border-border'}`}>
-                  <div className={`flex items-center justify-center gap-2 ${subscribed ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>
-                    <div className={`w-2 h-2 rounded-full ${subscribed ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></div>
-                    <span className="text-sm font-medium">{subscribed ? `${subscriptionTier} Active` : 'Free Plan'}</span>
+                  <div className={`flex items-center justify-between gap-2 ${subscribed ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${subscribed ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></div>
+                      <span className="text-sm font-medium">{subscribed ? `${subscriptionTier} Active` : 'Free Plan'}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRefreshSubscription}
+                      disabled={refreshing}
+                      className="h-6 px-2 py-1 text-xs hover:bg-white/10"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
+                    </Button>
                   </div>
                 </div>
               </CardContent>

@@ -176,7 +176,7 @@ const SubscriptionManager = () => {
         )}
         
         <Button 
-          onClick={checkSubscription}
+          onClick={() => checkSubscription()}
           variant="ghost"
           size="sm"
           className="w-full text-xs"

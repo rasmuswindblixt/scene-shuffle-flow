@@ -80,31 +80,69 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "active",
-      limit: 1,
-    });
-    const hasActiveSub = subscriptions.data.length > 0;
-    let subscriptionTier = "Premium";
-    let subscriptionEnd: string | null = null;
-
-    if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-    } else {
-      logStep("No active subscription found");
-    }
-
-    // Get current free exports used
+    // Get current subscriber data first
     const { data: currentSubscriber } = await supabaseClient
       .from("subscribers")
-      .select("free_exports_used")
+      .select("*")
       .eq("email", user.email)
       .single();
 
     const freeExportsUsed = currentSubscriber?.free_exports_used || 0;
+    
+    // Check for active AND recently cancelled subscriptions
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all", // Check all statuses to see recent cancellations
+      limit: 10,
+    });
+    
+    let hasActiveSub = false;
+    let subscriptionTier = currentSubscriber?.subscription_tier || "Premium";
+    let subscriptionEnd: string | null = currentSubscriber?.subscription_end || null;
+    let shouldUpdateSubscription = false;
+
+    // Check for active subscriptions first
+    const activeSubscriptions = subscriptions.data.filter(sub => sub.status === "active");
+    if (activeSubscriptions.length > 0) {
+      hasActiveSub = true;
+      const subscription = activeSubscriptions[0];
+      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+      subscriptionTier = "Premium";
+      shouldUpdateSubscription = true;
+      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
+    } else {
+      // Check if there's a recently cancelled subscription that's still valid
+      const recentSubscriptions = subscriptions.data.filter(sub => 
+        sub.status === "canceled" && 
+        new Date(sub.current_period_end * 1000) > new Date()
+      );
+      
+      if (recentSubscriptions.length > 0) {
+        // User still has access until period end
+        hasActiveSub = true;
+        const subscription = recentSubscriptions[0];
+        subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+        subscriptionTier = "Premium";
+        shouldUpdateSubscription = true;
+        logStep("Cancelled subscription still valid", { subscriptionId: subscription.id, endDate: subscriptionEnd });
+      } else {
+        // Check if subscription_end in database is still in the future
+        if (currentSubscriber?.subscription_end && new Date(currentSubscriber.subscription_end) > new Date()) {
+          // Keep existing subscription status until it expires
+          hasActiveSub = currentSubscriber.subscribed;
+          subscriptionTier = currentSubscriber.subscription_tier;
+          subscriptionEnd = currentSubscriber.subscription_end;
+          logStep("Using existing subscription data - not yet expired", { endDate: subscriptionEnd });
+        } else {
+          // Subscription has truly expired
+          hasActiveSub = false;
+          subscriptionTier = null;
+          subscriptionEnd = null;
+          shouldUpdateSubscription = true;
+          logStep("Subscription expired - setting to inactive");
+        }
+      }
+    }
 
     await supabaseClient.from("subscribers").upsert({
       email: user.email,
