@@ -111,6 +111,7 @@ const Landing = () => {
               <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
               <a href="#testimonials" className="text-muted-foreground hover:text-foreground transition-colors">Testimonials</a>
               <a href="#faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
+              <a href="/blog" className="text-muted-foreground hover:text-foreground transition-colors">Blog</a>
             </nav>
 
             <div className="flex items-center space-x-4">
