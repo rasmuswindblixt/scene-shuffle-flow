@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, BarChart3, HelpCircle, RefreshCw } from "lucide-react";
+import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 import ContactForm from "@/components/ContactForm";
 
@@ -13,6 +15,7 @@ const Account = () => {
   const navigate = useNavigate();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [managingSubscription, setManagingSubscription] = useState(false);
 
   const handleRefreshSubscription = async () => {
     setRefreshing(true);
@@ -22,6 +25,30 @@ const Account = () => {
       console.error('Error refreshing subscription:', error);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setManagingSubscription(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      
+      if (error) {
+        console.error('Error creating customer portal session:', error);
+        toast.error('Failed to open subscription management. Please try again.');
+        return;
+      }
+
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      } else {
+        toast.error('No portal URL received. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error invoking customer portal:', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setManagingSubscription(false);
     }
   };
 
@@ -154,6 +181,45 @@ const Account = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Subscription Management */}
+          {subscribed && (
+            <Card className="bg-card/60 backdrop-blur-sm border-primary/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-primary/20">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                    <Settings className="w-4 h-4 text-white" />
+                  </div>
+                  Subscription Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 rounded-lg bg-gradient-to-r from-purple/5 to-pink/5 border border-primary/10">
+                  <h4 className="font-semibold mb-2">Manage Your Subscription</h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Update payment method, view billing history, or cancel your subscription through Stripe's secure customer portal.
+                  </p>
+                  <Button
+                    onClick={handleManageSubscription}
+                    disabled={managingSubscription}
+                    className="bg-gradient-primary hover:opacity-90 text-white"
+                  >
+                    {managingSubscription ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Opening Portal...
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Manage Subscription
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
 
           {/* Subtle Support Button */}
