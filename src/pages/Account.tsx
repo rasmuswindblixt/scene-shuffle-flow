@@ -75,6 +75,7 @@ const Account = () => {
 
   // Debug logging
   console.log('Account page - subscribed:', subscribed, 'subscriptionTier:', subscriptionTier);
+  console.log('Should show subscription management:', subscribed);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
