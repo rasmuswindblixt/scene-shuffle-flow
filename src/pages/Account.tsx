@@ -197,7 +197,7 @@ const Account = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="p-4 rounded-lg bg-gradient-to-r from-purple/5 to-pink/5 border border-primary/10">
+                <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/5 to-pink-500/5 border border-primary/10">
                   <h4 className="font-semibold mb-2">Manage Your Subscription</h4>
                   <p className="text-sm text-muted-foreground mb-4">
                     Update payment method, view billing history, or cancel your subscription through Stripe's secure customer portal.
