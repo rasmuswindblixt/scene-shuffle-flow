@@ -40,7 +40,7 @@ const ContactForm = ({ isOpen, onClose }: ContactFormProps) => {
 
     try {
       // Send email using Supabase edge function
-      const response = await fetch('/functions/v1/contact', {
+      const response = await fetch('https://lipflxccmarrnmksypmm.supabase.co/functions/v1/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
