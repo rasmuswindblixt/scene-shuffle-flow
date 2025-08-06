@@ -73,6 +73,9 @@ const Account = () => {
     return null; // Will redirect to /auth
   }
 
+  // Debug logging
+  console.log('Account page - subscribed:', subscribed, 'subscriptionTier:', subscriptionTier);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       {/* Enhanced Header */}
