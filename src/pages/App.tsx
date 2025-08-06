@@ -150,7 +150,7 @@ const VideoApp = () => {
                     className="w-full bg-gradient-primary hover:opacity-90 shadow-primary"
                     onClick={() => navigate('/checkout')}
                   >
-                    Subscribe Now - $19/month
+                    Subscribe Now - $12.95/month
                   </Button>
                 </div>
               </CardContent>
