@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { Resend } from "npm:resend@2.0.0"
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,27 +43,18 @@ serve(async (req) => {
       </p>
     `
 
-    // For now, we'll use a simple approach without external email service
-    // In a production environment, you'd want to use Resend, SendGrid, or similar
+    // Send email using Resend
+    console.log('Sending contact form email:', { name, email })
     
-    // Since we don't have an email service configured, let's log it and return success
-    console.log('Contact form submission:', { name, email, message })
-    
-    // You would typically send the email here like:
-    // const res = await fetch('https://api.resend.com/emails', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${RESEND_API_KEY}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     from: 'noreply@clipmixpro.com',
-    //     to: ['pptskolan@gmail.com'],
-    //     subject: `New Contact Form Submission from ${name}`,
-    //     html: emailHtml,
-    //     reply_to: email,
-    //   }),
-    // })
+    const emailResponse = await resend.emails.send({
+      from: 'ClipMixPRO <onboarding@resend.dev>',
+      to: ['clipmixpro@gmail.com'],
+      subject: `New Contact Form Submission from ${name}`,
+      html: emailHtml,
+      replyTo: email,
+    })
+
+    console.log('Email sent successfully:', emailResponse)
 
     return new Response(
       JSON.stringify({ success: true, message: 'Message sent successfully' }),
