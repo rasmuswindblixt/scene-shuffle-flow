@@ -44,12 +44,13 @@ const ContactForm = ({ isOpen, onClose }: ContactFormProps) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcGZseGNjbWFycm5ta3N5cG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NjU3NDIsImV4cCI6MjA2NzE0MTc0Mn0.vExfnoKYhZYm6huHR8IKkVo8vuIJNFNF1P4RE90seEM',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcGZseGNjbWFycm5ta3N5cG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NjU3NDIsImV4cCI6MjA2NzE0MTc0Mn0.vExfnoKYhZYm6huHR8IKkVo8vuIJNFNF1P4RE90seEM'
         },
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
-          message: formData.message,
-          to: 'pptskolan@gmail.com'
+          message: formData.message
         }),
       });
 
