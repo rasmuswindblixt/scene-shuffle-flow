@@ -11,8 +11,8 @@ import Account from "./pages/Account";
 import Checkout from "./pages/Checkout";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
-import Blog from "./pages/Blog";
-import BlogPost from "./pages/BlogPost";
+// import Blog from "./pages/Blog";
+// import BlogPost from "./pages/BlogPost";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,8 +32,9 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
-            <Route path="/blog" element={<Blog />} />
-            <Route path="/blog/:slug" element={<BlogPost />} />
+            {/* Blog routes - hidden for later release */}
+            {/* <Route path="/blog" element={<Blog />} /> */}
+            {/* <Route path="/blog/:slug" element={<BlogPost />} /> */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
