@@ -236,27 +236,30 @@ const Landing = () => {
              
              {/* Success Stats */}
              <div className="text-center mt-12 max-w-4xl mx-auto">
-               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-                 Saving YouTube Automation experts <span className="font-semibold gradient-text">15+ hours per week</span> and generating 
-                 <span className="font-semibold gradient-text"> 40% more revenue</span> through copyright-safe, unique content that passes all platform policies.
-               </p>
+                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
+                  Saving YouTube Automation experts <span className="font-semibold gradient-text">15+ hours per week</span> and generating 
+                  <span className="font-semibold gradient-text"> 76% more revenue</span> through copyright-safe, unique content that passes all platform policies.
+                </p>
                <div className="flex flex-col sm:flex-row justify-center items-center gap-8 mt-8">
                  <div className="text-center">
                    <div className="text-3xl font-bold gradient-text">15+ hrs</div>
                    <div className="text-sm text-muted-foreground">Weekly Time Saved</div>
                  </div>
                  <div className="hidden sm:block w-px h-12 bg-border"></div>
-                 <div className="text-center">
-                   <div className="text-3xl font-bold gradient-text">40%+</div>
-                   <div className="text-sm text-muted-foreground">Revenue Increase</div>
-                 </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold gradient-text">76%+</div>
+                    <div className="text-sm text-muted-foreground">Revenue Increase</div>
+                  </div>
                  <div className="hidden sm:block w-px h-12 bg-border"></div>
                  <div className="text-center">
                    <div className="text-3xl font-bold gradient-text">100%</div>
                    <div className="text-sm text-muted-foreground">Copyright Safe</div>
                  </div>
-               </div>
-             </div>
+                </div>
+                <p className="text-xs text-muted-foreground/70 mt-4 italic">
+                  *Based on survey results from 67 ClipMixPRO users
+                </p>
+              </div>
           </div>
         </div>
       </section>
