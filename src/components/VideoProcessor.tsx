@@ -810,12 +810,12 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                     <span>Analyzing video for scene changes...</span>
                   </div>
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
-                    <div className="flex items-center space-x-2 text-orange-800">
-                      <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold">!</div>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
+                    <div className="flex items-center space-x-2 text-yellow-800 dark:text-yellow-200">
+                      <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs font-bold">!</div>
                       <p className="text-sm font-medium">Important: Please don't leave this page!</p>
                     </div>
-                    <p className="text-xs text-orange-700 mt-1">
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
                       Leaving this window may interrupt the analysis process. We're working on a fix for this.
                     </p>
                   </div>
