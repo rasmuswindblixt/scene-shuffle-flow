@@ -477,7 +477,7 @@ const Landing = () => {
         <div className="container mx-auto px-6 text-center relative">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-5xl font-bold mb-6">
-              Ready to Create <span className="gradient-text">Copyright-Safe Videos?</span>
+              Ready to <span className="gradient-text">Increase Your Revenue?</span>
             </h2>
             <p className="text-xl text-muted-foreground mb-12">
               Join hundreds of creators who trust ClipMixPRO to save time and increase revenue with copyright-safe content.
@@ -487,12 +487,12 @@ const Landing = () => {
               <CardContent className="p-8">
                 <div className="text-center mb-6">
                   <div className="mb-2">
-                    <div className="text-lg line-through text-muted-foreground">$19.95/month</div>
+                    <div className="text-lg line-through text-muted-foreground">$39.95/month</div>
                     <div className="text-4xl font-bold gradient-text">$12.95/month</div>
                     <div className="text-sm text-orange-600 font-medium">🔥 Limited Time Offer</div>
                   </div>
                   <p className="text-muted-foreground mb-2">Unlimited video processing</p>
-                  <p className="text-xs text-orange-600 font-medium">⚡ Early users get forever unlimited exports - price increases later!</p>
+                  <p className="text-xs text-orange-600 font-medium">⚡ Early users get forever unlimited exports - price increases soon!</p>
                 </div>
                 <ul className="text-left space-y-3 mb-8">
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Unlimited video uploads</li>
