@@ -137,13 +137,10 @@ const Landing = () => {
         <div className="container mx-auto px-6 text-center relative">
           <div className="max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-              Shuffle Videos to Beat{' '}
-              <span className="gradient-text">YouTube's Reused Content</span>{' '}
-              Policies
+              Stop wasting hours shuffling scenes—get a ready-to-upload mash-up in 60 seconds.
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
-              AI-powered scene detection automatically shuffles your video clips into unique sequences, 
-              making them safe from copyright strikes and reused content policies.
+              Faceless-YouTube creators spend most of their day cutting, splitting, and shuffling footage just to stay compliant. ClipMixPRO's AI does every tedious step for you—merging two 20-minute videos into one long-form edit that passes YouTube's reused-content checks.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
@@ -152,7 +149,7 @@ const Landing = () => {
                 className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
                 onClick={() => navigate('/app')}
               >
-                Start Shuffling Videos
+                Automate My Edit
               </Button>
               <Button 
                 size="lg" 
