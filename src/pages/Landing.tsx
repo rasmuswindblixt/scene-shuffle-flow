@@ -325,6 +325,17 @@ const Landing = () => {
               </div>
             ))}
           </div>
+          
+          {/* CTA Button */}
+          <div className="text-center mt-12">
+            <Button 
+              size="lg" 
+              className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
+              onClick={() => navigate('/app')}
+            >
+              Automate My Edit Now
+            </Button>
+          </div>
         </div>
       </section>
 
