@@ -82,11 +82,10 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
 
   // Get scenes within the max duration limit
   const getScenesWithinDuration = (scenes: Scene[], maxDuration: number): Scene[] => {
-    const selectedScenes = scenes.filter(scene => scene.selected);
     const result: Scene[] = [];
     let totalDuration = 0;
     
-    for (const scene of selectedScenes) {
+    for (const scene of scenes) {
       if (totalDuration + scene.duration <= maxDuration) {
         result.push(scene);
         totalDuration += scene.duration;
@@ -360,47 +359,11 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
   };
 
   const reshuffleScenes = () => {
-    // Only shuffle selected scenes from the current shuffled view
-    const selectedScenes = shuffledScenes.filter(scene => scene.selected);
-    const newShuffle = shuffleWithConstraints(selectedScenes);
+    // Reshuffle all scenes (all are kept selected)
+    const newShuffle = shuffleWithConstraints(shuffledScenes);
     setShuffledScenes(newShuffle);
     
     toast.success("Scenes reshuffled!");
-  };
-
-  // Toggle selection for a specific scene in shuffled view
-  const toggleSceneSelection = (sceneId: string) => {
-    const updatedShuffledScenes = shuffledScenes.map(scene =>
-      scene.id === sceneId ? { ...scene, selected: !scene.selected } : scene
-    );
-    setShuffledScenes(updatedShuffledScenes);
-    
-    // Also update the original scenes array to keep them in sync
-    const updatedScenes = scenes.map(scene => {
-      const shuffledScene = updatedShuffledScenes.find(s => s.id === scene.id);
-      return shuffledScene ? { ...scene, selected: shuffledScene.selected } : scene;
-    });
-    setScenes(updatedScenes);
-  };
-
-  // Select or deselect all scenes in shuffled view
-  const toggleSelectAll = () => {
-    const allSelected = shuffledScenes.every(scene => scene.selected);
-    const updatedShuffledScenes = shuffledScenes.map(scene => ({
-      ...scene,
-      selected: !allSelected
-    }));
-    setShuffledScenes(updatedShuffledScenes);
-    
-    // Also update the original scenes array to keep them in sync
-    const updatedScenes = scenes.map(scene => {
-      const shuffledScene = updatedShuffledScenes.find(s => s.id === scene.id);
-      return shuffledScene ? { ...scene, selected: shuffledScene.selected } : scene;
-    });
-    setScenes(updatedScenes);
-    
-    const action = allSelected ? "deselected" : "selected";
-    toast.success(`All scenes ${action}!`);
   };
 
   const drawCredit = async (user: any) => {
@@ -890,74 +853,45 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
               </CardContent>
             </Card>
 
-                        {/* Interactive Shuffled Preview */}
+            {/* Scene Preview */}
             <Card>
               <CardHeader>
-                <CardTitle>Shuffled Preview - Select Scenes to Include</CardTitle>
+                <CardTitle>Shuffled Preview</CardTitle>
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
-                    {shuffledScenes.filter(s => s.selected).length} of {shuffledScenes.length} scenes selected
+                    {shuffledScenes.length} scenes ready for export
                     {videoFiles.length > 1 && (
                       <>
                         <br />
                         <span className="text-primary font-medium">
-                          {getVideoMixingStats(shuffledScenes.filter(s => s.selected))}
+                          {getVideoMixingStats(shuffledScenes)}
                         </span>
                       </>
                     )}
                   </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={toggleSelectAll}
-                  >
-                    {shuffledScenes.every(scene => scene.selected) ? "Deselect All" : "Select All"}
-                  </Button>
-                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-6 gap-3">
                   {shuffledScenes.map((scene, index) => (
                     <div key={`shuffled-${scene.id}-${index}`} className="relative group">
-                      <div 
-                        className={`relative rounded-lg border-2 transition-all cursor-pointer ${
-                          scene.selected 
-                            ? 'border-primary bg-primary/5' 
-                            : 'border-border opacity-60'
-                        }`}
-                        onClick={() => toggleSceneSelection(scene.id)}
-                      >
+                      <div className="relative rounded-lg border-2 border-primary bg-primary/5">
                         <img
                           src={scene.thumbnail}
                           alt={`Shuffled ${index + 1}`}
                           className="w-full aspect-video object-cover rounded-lg"
                         />
                         
-                        {/* Selection Checkbox */}
-                        <div className="absolute top-1 left-1">
-                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                            scene.selected 
-                              ? 'bg-primary border-primary text-white' 
-                              : 'bg-white border-gray-400'
-                          }`}>
-                            {scene.selected && (
-                              <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </div>
-                  </div>
-                  
                         {/* Scene Number */}
                         <div className="absolute bottom-1 left-1 bg-primary text-white text-xs px-1 rounded">
                           {index + 1}
-                  </div>
+                        </div>
                         
                         {/* Video Indicator */}
                         {videoFiles.length > 1 && (
                           <div className="absolute top-1 right-1 bg-secondary text-primary text-xs px-1 rounded font-bold">
                             V{(scene.videoIndex || 0) + 1}
-                </div>
+                          </div>
                         )}
                         
                         {/* Hover Info */}
@@ -974,12 +908,8 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                             )}
                             <br />
                             {scene.duration.toFixed(1)}s
-                            <br />
-                            <span className="text-xs">
-                              {scene.selected ? 'Click to deselect' : 'Click to select'}
-                            </span>
-        </div>
-                </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -997,28 +927,28 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium">Max Video Duration</label>
                     <span className="text-sm text-muted-foreground">
-                      {formatDuration(maxVideoDuration)} / {formatDuration(shuffledScenes.filter(s => s.selected).reduce((sum, scene) => sum + scene.duration, 0))}
+                      {formatDuration(maxVideoDuration)} / {formatDuration(shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0))}
                     </span>
                   </div>
 
                   <Slider
                     value={[maxVideoDuration]}
                     onValueChange={(value) => setMaxVideoDuration(value[0])}
-                    max={shuffledScenes.filter(s => s.selected).reduce((sum, scene) => sum + scene.duration, 0)}
-                    min={Math.min(60, shuffledScenes.filter(s => s.selected).reduce((sum, scene) => sum + scene.duration, 0))} // Min 1 minute or total if less
-                              step={0.1}
-                        className="w-full"
-                      />
-                  
+                    max={shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0)}
+                    min={Math.min(60, shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0))} // Min 1 minute or total if less
+                          step={0.1}
+                    className="w-full"
+                  />
+              
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{formatDuration(Math.min(60, shuffledScenes.filter(s => s.selected).reduce((sum, scene) => sum + scene.duration, 0)))}</span>
-                    <span>{formatDuration(shuffledScenes.filter(s => s.selected).reduce((sum, scene) => sum + scene.duration, 0))}</span>
+                    <span>{formatDuration(Math.min(60, shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0)))}</span>
+                    <span>{formatDuration(shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0))}</span>
                   </div>
 
-                  {getScenesWithinDuration(shuffledScenes, maxVideoDuration).length < shuffledScenes.filter(s => s.selected).length && (
+                  {getScenesWithinDuration(shuffledScenes, maxVideoDuration).length < shuffledScenes.length && (
                     <div className="text-center text-sm text-amber-600 bg-amber-50 p-2 rounded">
                       <Film className="w-4 h-4 inline mr-1" />
-                      {shuffledScenes.filter(s => s.selected).length - getScenesWithinDuration(shuffledScenes, maxVideoDuration).length} scenes will be excluded to fit duration limit
+                      {shuffledScenes.length - getScenesWithinDuration(shuffledScenes, maxVideoDuration).length} scenes will be excluded to fit duration limit
                     </div>
                   )}
                   </div>
