@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink } from "lucide-react";
+import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ const Account = () => {
   const { user, loading, subscribed, subscriptionTier, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
+  const [isFeedbackFormOpen, setIsFeedbackFormOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
 
@@ -225,6 +226,32 @@ const Account = () => {
             </Card>
           )}
 
+          {/* Feedback & Feature Requests */}
+          <Card className="bg-card/60 backdrop-blur-sm border-primary/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-primary/20">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+                  <MessageSquare className="w-4 h-4 text-white" />
+                </div>
+                Feedback & Feature Requests
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 rounded-lg bg-gradient-to-r from-orange-500/5 to-red-500/5 border border-primary/10">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Your voice means everything to us! ❤️<br />
+                  We're a small team of YouTube automation experts and developers dedicated to making faceless content creation easier, faster, and more efficient. If you spot a bug—or have an idea for a helpful feature—please let us know. ClipMixPRO is a shared journey, built by creators, for creators.
+                </p>
+                <Button
+                  onClick={() => setIsFeedbackFormOpen(true)}
+                  className="bg-gradient-to-r from-orange-500 to-red-600 hover:opacity-90 text-white"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Share Feedback
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Subtle Support Button */}
           <div className="text-center mt-12">
@@ -245,6 +272,12 @@ const Account = () => {
       <ContactForm 
         isOpen={isContactFormOpen} 
         onClose={() => setIsContactFormOpen(false)} 
+      />
+
+      {/* Feedback Form Modal */}
+      <ContactForm 
+        isOpen={isFeedbackFormOpen} 
+        onClose={() => setIsFeedbackFormOpen(false)} 
       />
     </div>
   );
