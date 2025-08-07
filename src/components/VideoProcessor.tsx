@@ -799,37 +799,45 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
 
         {/* Analysis Step */}
         {currentStep === 'analyze' && (
-            <Card>
-              <CardHeader>
-              <CardTitle>Scene Detection in Progress</CardTitle>
-              </CardHeader>
-              <CardContent>
-              {isAnalyzing ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                    <span>Analyzing video for scene changes...</span>
-                  </div>
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
-                    <div className="flex items-center space-x-2 text-yellow-800 dark:text-yellow-200">
-                      <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs font-bold">!</div>
-                      <p className="text-sm font-medium">Important: Please don't leave this page!</p>
-                    </div>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+          <div className="space-y-6">
+            {/* Warning Message - Always visible during analysis */}
+            {isAnalyzing && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-4">
+                <div className="flex items-center space-x-3 text-yellow-800 dark:text-yellow-200">
+                  <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">!</div>
+                  <div>
+                    <p className="font-semibold text-base">Important: Please don't leave this page!</p>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
                       Leaving this window may interrupt the analysis process. We're working on a fix for this.
                     </p>
                   </div>
-                  <p className="text-sm text-muted-foreground text-center">
-                    Enhanced detection analyzes every 0.5s with improved sensitivity to find more scenes.<br/>
-                    Scenes are filtered to 1.8-7.7s, trimmed by 0.8s (transitions removed), then capped at 6.9s max.
-                  </p>
                 </div>
-              ) : (
-                <p className="text-center">Analysis complete!</p>
-              )}
+              </div>
+            )}
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Scene Detection in Progress</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isAnalyzing ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                      <span>Analyzing video for scene changes...</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Enhanced detection analyzes every 0.5s with improved sensitivity to find more scenes.<br/>
+                      Scenes are filtered to 1.8-7.7s, trimmed by 0.8s (transitions removed), then capped at 6.9s max.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-center">Analysis complete!</p>
+                )}
               </CardContent>
             </Card>
-          )}
+          </div>
+        )}
 
           {/* Scene Detection Component */}
         {isAnalyzing && (
