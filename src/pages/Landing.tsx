@@ -137,7 +137,7 @@ const Landing = () => {
         <div className="container mx-auto px-6 text-center relative">
           <div className="max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-              Stop wasting hours shuffling scenes—get a ready-to-upload mash-up in 60 seconds.
+              Stop wasting hours shuffling scenes—<span className="gradient-text">ClipMixPRO does it for you</span> in 60 seconds.
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
               Faceless-YouTube creators spend most of their day cutting, splitting, and shuffling footage just to stay compliant. ClipMixPRO's AI does every tedious step for you—merging two 20-minute videos into one long-form edit that passes YouTube's reused-content checks.
