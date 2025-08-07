@@ -495,7 +495,7 @@ const Landing = () => {
                   <p className="text-xs text-orange-600 font-medium">⚡ Early users get forever unlimited exports - price increases soon!</p>
                 </div>
                 <ul className="text-left space-y-3 mb-8">
-                  <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Unlimited video uploads</li>
+                  <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Unlimited video exports</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />AI-powered scene detection</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Smart shuffle algorithm</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />HD video exports</li>
