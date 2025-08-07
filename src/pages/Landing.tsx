@@ -480,7 +480,7 @@ const Landing = () => {
               Ready to Create <span className="gradient-text">Copyright-Safe Videos?</span>
             </h2>
             <p className="text-xl text-muted-foreground mb-12">
-              Join thousands of creators who trust ClipMixPRO to keep their content safe and unique.
+              Join hundreds of creators who trust ClipMixPRO to save time and increase revenue with copyright-safe content.
             </p>
             
             <Card className="max-w-lg mx-auto card-hover bg-card/80 backdrop-blur border-primary/20">
@@ -491,13 +491,14 @@ const Landing = () => {
                     <div className="text-4xl font-bold gradient-text">$12.95/month</div>
                     <div className="text-sm text-orange-600 font-medium">🔥 Limited Time Offer</div>
                   </div>
-                  <p className="text-muted-foreground">Unlimited video processing</p>
+                  <p className="text-muted-foreground mb-2">Unlimited video processing</p>
+                  <p className="text-xs text-orange-600 font-medium">⚡ Early users get forever unlimited exports - price increases later!</p>
                 </div>
                 <ul className="text-left space-y-3 mb-8">
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Unlimited video uploads</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />AI-powered scene detection</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Smart shuffle algorithm</li>
-                  <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />HD video exports (720p)</li>
+                  <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />HD video exports</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Up to 30-minute videos</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Mix up to 2 videos together</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Custom video length control</li>
