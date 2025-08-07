@@ -165,14 +165,10 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
           ...scene,
           startTime: scene.startTime + trimPerSide,
           duration: 6.9,
-          id: scene.id + '_maxTrimmed',
-          selected: true // All scenes selected by default
+          id: scene.id + '_maxTrimmed'
         };
       }
-      return {
-        ...scene,
-        selected: true // All scenes selected by default
-      };
+      return scene;
     });
     
     console.log("Filtered scenes (1.8-7.7s):", filtered.length);
@@ -186,9 +182,8 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
       return;
     }
 
-    // Shuffle the scenes with constraint: no adjacent original order (only selected scenes)
-    const selectedScenes = finalTrimmedScenes.filter(scene => scene.selected);
-    const shuffled = shuffleWithConstraints(selectedScenes);
+    // Shuffle all scenes
+    const shuffled = shuffleWithConstraints(finalTrimmedScenes);
     
     setScenes(finalTrimmedScenes);
     setShuffledScenes(shuffled);
