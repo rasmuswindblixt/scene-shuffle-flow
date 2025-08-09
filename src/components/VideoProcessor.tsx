@@ -200,7 +200,10 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
     setScenes(allScenes);
     setIsAnalyzing(false);
     setCurrentStep("process");
-    toast.success(`Found ${allScenes.length} scenes!`);
+    toast({
+      title: "Analysis complete",
+      description: `Found ${allScenes.length} scenes.`,
+    });
   }, [videoFiles, videoUrls, minDuration, maxDuration, shuffle, toast]);
 
   // Function to compare two images
@@ -259,7 +262,10 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
       setDownloadURL(url);
       setIsProcessing(false);
       setCurrentStep("download");
-      toast.success("Video processing complete!");
+      toast({
+        title: "Processing complete",
+        description: "Your video is ready to download.",
+      });
     } catch (error: any) {
       console.error("Error processing videos:", error);
       setErrorMessage(error.message || "Failed to process videos.");
@@ -456,7 +462,10 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
 
       URL.revokeObjectURL(url); // Clean up the URL
       setIsDownloadComplete(true);
-      toast.success("Download complete!");
+      toast({
+        title: "Download complete",
+        description: "Your video has been saved.",
+      });
     } catch (error: any) {
       console.error("Download error:", error);
       setDownloadError(error.message || "Download failed");
@@ -561,7 +570,7 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                   <Checkbox
                     id="shuffle"
                     checked={shuffle}
-                    onCheckedChange={(checked) => setShuffle(checked || false)}
+                    onCheckedChange={(checked) => setShuffle(checked === true)}
                   />
                   <Label htmlFor="shuffle">Shuffle Scenes</Label>
                 </div>
@@ -606,7 +615,7 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                 {/* Video Format Select */}
                 <div className="space-y-2">
                   <Label htmlFor="video-format">Video Format</Label>
-                  <Select onValueChange={setVideoFormat} defaultValue={videoFormat}>
+                  <Select onValueChange={(v) => setVideoFormat(v as "mp4" | "webm")} defaultValue={videoFormat}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a video format" />
                     </SelectTrigger>
