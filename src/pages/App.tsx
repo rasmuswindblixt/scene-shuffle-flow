@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import VideoUpload from "@/components/VideoUpload";
 import VideoProcessor from "@/components/VideoProcessor";
@@ -24,26 +24,29 @@ const VideoApp = () => {
   const [hasEverAuthed, setHasEverAuthed] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !document.hidden) {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
 
-  // Cleanup video URLs when component unmounts
+  // Keep latest URLs in a ref and only revoke on unmount
+  const videoUrlsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    videoUrlsRef.current = videoUrls;
+  }, [videoUrls]);
+
   useEffect(() => {
     return () => {
-      // Only cleanup video URLs if the component is actually unmounting, not just hidden
-      if (isPageVisible || document.hidden === false) {
-        videoUrls.forEach(url => {
-          try {
-            URL.revokeObjectURL(url);
-          } catch (error) {
-            // Ignore errors if URL was already revoked
-          }
-        });
-      }
+      videoUrlsRef.current.forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          // Ignore errors if URL was already revoked
+        }
+      });
     };
-  }, [videoUrls, isPageVisible]);
+  }, []);
 
   useEffect(() => {
     // Handle Stripe success/cancel redirects
