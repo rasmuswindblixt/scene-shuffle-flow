@@ -21,6 +21,7 @@ const VideoApp = () => {
   const { toast } = useToast();
   
   const isPageVisible = usePageVisibility();
+  const [hasEverAuthed, setHasEverAuthed] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
