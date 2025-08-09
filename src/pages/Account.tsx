@@ -313,9 +313,9 @@ const Account = () => {
                     <p className="font-medium">Page reloads and video processing interrupts when switching tabs</p>
                     <p className="text-sm text-muted-foreground">Identified: 2025.08.07</p>
                   </div>
-                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    Fixed
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                    <Clock className="w-4 h-4 mr-1" />
+                    Investigating
                   </Badge>
                 </div>
                 
