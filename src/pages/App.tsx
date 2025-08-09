@@ -22,12 +22,34 @@ const VideoApp = () => {
   
   const isPageVisible = usePageVisibility();
   const [hasEverAuthed, setHasEverAuthed] = useState(false);
+  const [initialAuthCheck, setInitialAuthCheck] = useState(false);
 
+  // Track when user is authenticated to prevent unnecessary redirects
   useEffect(() => {
-    if (!loading && !user && !document.hidden) {
+    if (user && !hasEverAuthed) {
+      setHasEverAuthed(true);
+    }
+  }, [user, hasEverAuthed]);
+
+  // Handle authentication redirects with improved logic to prevent tab-switch issues
+  useEffect(() => {
+    if (loading) return; // Don't redirect while loading
+    
+    // Mark that we've done the initial auth check
+    if (!initialAuthCheck) {
+      setInitialAuthCheck(true);
+    }
+    
+    // Only redirect if:
+    // 1. Not loading
+    // 2. No user
+    // 3. Page is currently visible (prevents tab-switch redirects)
+    // 4. We've completed initial auth check (prevents race conditions)
+    // 5. User has never been authenticated in this session
+    if (!user && isPageVisible && initialAuthCheck && !hasEverAuthed) {
       navigate('/auth');
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isPageVisible, initialAuthCheck, hasEverAuthed]);
 
   // Keep latest URLs in a ref and only revoke on unmount
   const videoUrlsRef = useRef<string[]>([]);

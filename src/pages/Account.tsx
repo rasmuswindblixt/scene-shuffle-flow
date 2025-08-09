@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare, Bug, CheckCircle, Clock, Code } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { usePageVisibility } from '@/hooks/usePageVisibility';
 
 import ContactForm from "@/components/ContactForm";
 
@@ -17,6 +19,10 @@ const Account = () => {
   const [isFeedbackFormOpen, setIsFeedbackFormOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
+  const [contactFormSubject, setContactFormSubject] = useState("");
+  const isPageVisible = usePageVisibility();
+  const [hasEverAuthed, setHasEverAuthed] = useState(false);
+  const [initialAuthCheck, setInitialAuthCheck] = useState(false);
 
   const handleRefreshSubscription = async () => {
     setRefreshing(true);
@@ -53,11 +59,32 @@ const Account = () => {
     }
   };
 
+  // Track when user is authenticated to prevent unnecessary redirects
   useEffect(() => {
-    if (!loading && !user) {
+    if (user && !hasEverAuthed) {
+      setHasEverAuthed(true);
+    }
+  }, [user, hasEverAuthed]);
+
+  // Handle authentication redirects with improved logic to prevent tab-switch issues
+  useEffect(() => {
+    if (loading) return; // Don't redirect while loading
+    
+    // Mark that we've done the initial auth check
+    if (!initialAuthCheck) {
+      setInitialAuthCheck(true);
+    }
+    
+    // Only redirect if:
+    // 1. Not loading
+    // 2. No user
+    // 3. Page is currently visible (prevents tab-switch redirects)
+    // 4. We've completed initial auth check (prevents race conditions)
+    // 5. User has never been authenticated in this session
+    if (!user && isPageVisible && initialAuthCheck && !hasEverAuthed) {
       navigate('/auth');
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isPageVisible, initialAuthCheck, hasEverAuthed]);
 
   if (loading) {
     return (
@@ -253,12 +280,123 @@ const Account = () => {
             </CardContent>
           </Card>
 
+          {/* Identified Bugs and Status */}
+          <Card className="bg-gradient-to-r from-blue-900/10 to-indigo-900/10 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700">
+            <CardHeader className="pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
+                  <Bug className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Identified Bugs and Status</CardTitle>
+                  <p className="text-muted-foreground mt-1">
+                    Transparency in our ongoing bug fixes and improvements. We're constantly working to improve your experience.
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-4 bg-background/80 rounded-lg border border-border/50">
+                  <div className="flex-1">
+                    <p className="font-medium">Users cannot cancel subscriptions</p>
+                    <p className="text-sm text-muted-foreground">Identified: 2025.08.05</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Fixed
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-background/80 rounded-lg border border-border/50">
+                  <div className="flex-1">
+                    <p className="font-medium">Page reloads and video processing interrupts when switching tabs</p>
+                    <p className="text-sm text-muted-foreground">Identified: 2025.08.07</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Fixed
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-background/80 rounded-lg border border-border/50">
+                  <div className="flex-1">
+                    <p className="font-medium">Some users experience slow video export</p>
+                    <p className="text-sm text-muted-foreground">Identified: 2025.08.06</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                    <Clock className="w-4 h-4 mr-1" />
+                    Investigating
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-background/80 rounded-lg border border-border/50">
+                  <div className="flex-1">
+                    <p className="font-medium">Ability to upload more than 2 videos</p>
+                    <p className="text-sm text-muted-foreground">Identified: 2025.08.09</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                    <Code className="w-4 h-4 mr-1" />
+                    Under Development
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-background/80 rounded-lg border border-border/50">
+                  <div className="flex-1">
+                    <p className="font-medium">Upload videos longer than 30 minutes</p>
+                    <p className="text-sm text-muted-foreground">Identified: 2025.08.08</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                    <Code className="w-4 h-4 mr-1" />
+                    Under Development
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-background/80 rounded-lg border border-border/50">
+                  <div className="flex-1">
+                    <p className="font-medium">Add more formats when exporting videos (MP4, AVI, etc.)</p>
+                    <p className="text-sm text-muted-foreground">Identified: 2025.08.08</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                    <Code className="w-4 h-4 mr-1" />
+                    Under Development
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 bg-background/80 rounded-lg border border-border/50">
+                  <div className="flex-1">
+                    <p className="font-medium">Implement free trial</p>
+                    <p className="text-sm text-muted-foreground">Identified: 2025.08.01</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                    <Clock className="w-4 h-4 mr-1" />
+                    Investigating
+                  </Badge>
+                </div>
+              </div>
+              
+              <Button
+                onClick={() => {
+                  setContactFormSubject("Bug Report: ");
+                  setIsContactFormOpen(true);
+                }}
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:opacity-90 text-white"
+              >
+                <Bug className="w-4 h-4 mr-2" />
+                Report Bug
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Subtle Support Button */}
           <div className="text-center mt-12">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsContactFormOpen(true)}
+              onClick={() => {
+                setContactFormSubject("");
+                setIsContactFormOpen(true);
+              }}
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               <HelpCircle className="w-4 h-4 mr-2" />
@@ -271,13 +409,18 @@ const Account = () => {
       {/* Contact Form Modal */}
       <ContactForm 
         isOpen={isContactFormOpen} 
-        onClose={() => setIsContactFormOpen(false)} 
+        onClose={() => {
+          setIsContactFormOpen(false);
+          setContactFormSubject("");
+        }}
+        initialSubject={contactFormSubject}
       />
 
       {/* Feedback Form Modal */}
       <ContactForm 
         isOpen={isFeedbackFormOpen} 
         onClose={() => setIsFeedbackFormOpen(false)} 
+        initialSubject="Feedback & Feature Request: "
       />
     </div>
   );

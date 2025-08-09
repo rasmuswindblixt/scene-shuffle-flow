@@ -359,6 +359,25 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
     }
   }, [videoFiles, scenes.length, hasStartedAnalysis, currentStep, isPageVisible, handleAnalyze]);
 
+  // Add beforeunload warning during processing to prevent accidental navigation
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isAnalyzing || isProcessing) {
+        e.preventDefault();
+        e.returnValue = 'You have an ongoing video analysis or processing. Are you sure you want to leave?';
+        return 'You have an ongoing video analysis or processing. Are you sure you want to leave?';
+      }
+    };
+
+    if (isAnalyzing || isProcessing) {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isAnalyzing, isProcessing]);
+
   // Add warning about tab switching during analysis
   const TabSwitchWarning = () => (
     <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-600 rounded-lg p-4 mb-4">
