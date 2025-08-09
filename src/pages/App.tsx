@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { HelpCircle } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import ContactForm from "@/components/ContactForm";
+import { usePageVisibility } from '@/hooks/usePageVisibility';
 
 const VideoApp = () => {
   const [uploadedVideos, setUploadedVideos] = useState<File[]>([]);
@@ -18,6 +19,8 @@ const VideoApp = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  
+  const isPageVisible = usePageVisibility();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -28,15 +31,18 @@ const VideoApp = () => {
   // Cleanup video URLs when component unmounts
   useEffect(() => {
     return () => {
-      videoUrls.forEach(url => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (error) {
-          // Ignore errors if URL was already revoked
-        }
-      });
+      // Only cleanup video URLs if the component is actually unmounting, not just hidden
+      if (isPageVisible || document.hidden === false) {
+        videoUrls.forEach(url => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch (error) {
+            // Ignore errors if URL was already revoked
+          }
+        });
+      }
     };
-  }, [videoUrls]);
+  }, [videoUrls, isPageVisible]);
 
   useEffect(() => {
     // Handle Stripe success/cancel redirects
