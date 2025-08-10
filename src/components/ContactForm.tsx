@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,26 +10,14 @@ import { Mail, Send, X } from "lucide-react";
 interface ContactFormProps {
   isOpen: boolean;
   onClose: () => void;
-  initialSubject?: string;
 }
 
-const ContactForm = ({ isOpen, onClose, initialSubject }: ContactFormProps) => {
+const ContactForm = ({ isOpen, onClose }: ContactFormProps) => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    subject: "",
     message: ""
   });
-
-  // Set initial subject when the form opens
-  useEffect(() => {
-    if (isOpen && initialSubject) {
-      setFormData(prev => ({
-        ...prev,
-        subject: initialSubject
-      }));
-    }
-  }, [isOpen, initialSubject]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -43,7 +31,7 @@ const ContactForm = ({ isOpen, onClose, initialSubject }: ContactFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.email || !formData.subject || !formData.message) {
+    if (!formData.name || !formData.email || !formData.message) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -60,14 +48,13 @@ const ContactForm = ({ isOpen, onClose, initialSubject }: ContactFormProps) => {
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
-          subject: formData.subject,
           message: formData.message
         }),
       });
 
       if (response.ok) {
         toast.success("Message sent successfully! We'll get back to you soon.");
-        setFormData({ name: "", email: "", subject: "", message: "" });
+        setFormData({ name: "", email: "", message: "" });
         onClose();
       } else {
         throw new Error('Failed to send message');
@@ -81,7 +68,7 @@ const ContactForm = ({ isOpen, onClose, initialSubject }: ContactFormProps) => {
   };
 
   const handleCancel = () => {
-    setFormData({ name: "", email: "", subject: "", message: "" });
+    setFormData({ name: "", email: "", message: "" });
     onClose();
   };
 
@@ -119,19 +106,6 @@ const ContactForm = ({ isOpen, onClose, initialSubject }: ContactFormProps) => {
               type="email"
               placeholder="your.email@example.com"
               value={formData.email}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="subject">Subject</Label>
-            <Input
-              id="subject"
-              name="subject"
-              type="text"
-              placeholder="What's this about?"
-              value={formData.subject}
               onChange={handleInputChange}
               required
             />

@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Zap, Shield, Download, Upload, Cpu, Check, ChevronRight, Play, CheckCircle, Shuffle, Clock } from "lucide-react";
@@ -555,8 +555,8 @@ const Landing = () => {
             
             <div className="flex items-center space-x-6 text-sm text-muted-foreground">
               <span>© 2025 ClipMixPRO</span>
-              <Link to="/privacy-policy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-              <Link to="/terms-of-service" className="hover:text-foreground transition-colors">Terms of Service</Link>
+              <a href="/privacy-policy" className="hover:text-foreground transition-colors">Privacy Policy</a>
+              <a href="/terms-of-service" className="hover:text-foreground transition-colors">Terms of Service</a>
               <button 
                 onClick={() => setIsContactFormOpen(true)}
                 className="hover:text-foreground transition-colors"

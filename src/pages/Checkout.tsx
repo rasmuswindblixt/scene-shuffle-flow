@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft } from "lucide-react";
-import { usePageVisibility } from '@/hooks/usePageVisibility';
 
 const Checkout = () => {
   const { user, session, loading } = useAuth();
@@ -14,33 +13,9 @@ const Checkout = () => {
   const { toast } = useToast();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isPageVisible = usePageVisibility();
-  const [hasEverAuthed, setHasEverAuthed] = useState(false);
-  const [initialAuthCheck, setInitialAuthCheck] = useState(false);
 
-  // Track when user is authenticated to prevent unnecessary redirects
   useEffect(() => {
-    if (user && !hasEverAuthed) {
-      setHasEverAuthed(true);
-    }
-  }, [user, hasEverAuthed]);
-
-  // Handle authentication redirects with improved logic to prevent tab-switch issues
-  useEffect(() => {
-    if (loading) return; // Don't redirect while loading
-    
-    // Mark that we've done the initial auth check
-    if (!initialAuthCheck) {
-      setInitialAuthCheck(true);
-    }
-    
-    // Only redirect if:
-    // 1. Not loading
-    // 2. No user
-    // 3. Page is currently visible (prevents tab-switch redirects)
-    // 4. We've completed initial auth check (prevents race conditions)
-    // 5. User has never been authenticated in this session
-    if (!user && isPageVisible && initialAuthCheck && !hasEverAuthed) {
+    if (!loading && !user) {
       navigate('/auth');
       return;
     }
@@ -48,7 +23,7 @@ const Checkout = () => {
     if (session && !isRedirecting && !error) {
       handleCheckout();
     }
-  }, [user, loading, session, isRedirecting, error, isPageVisible, initialAuthCheck, hasEverAuthed]);
+  }, [user, loading, session, isRedirecting, error]);
 
   const handleCheckout = async () => {
     if (!session) return;

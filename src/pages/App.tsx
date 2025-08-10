@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import VideoUpload from "@/components/VideoUpload";
 import VideoProcessor from "@/components/VideoProcessor";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { HelpCircle } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import ContactForm from "@/components/ContactForm";
-import { usePageVisibility } from '@/hooks/usePageVisibility';
 
 const VideoApp = () => {
   const [uploadedVideos, setUploadedVideos] = useState<File[]>([]);
@@ -19,48 +18,17 @@ const VideoApp = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  
-  const isPageVisible = usePageVisibility();
-  const [hasEverAuthed, setHasEverAuthed] = useState(false);
-  const [initialAuthCheck, setInitialAuthCheck] = useState(false);
 
-  // Track when user is authenticated to prevent unnecessary redirects
   useEffect(() => {
-    if (user && !hasEverAuthed) {
-      setHasEverAuthed(true);
-    }
-  }, [user, hasEverAuthed]);
-
-  // Handle authentication redirects with improved logic to prevent tab-switch issues
-  useEffect(() => {
-    if (loading) return; // Don't redirect while loading
-    
-    // Mark that we've done the initial auth check
-    if (!initialAuthCheck) {
-      setInitialAuthCheck(true);
-    }
-    
-    // Only redirect if:
-    // 1. Not loading
-    // 2. No user
-    // 3. Page is currently visible (prevents tab-switch redirects)
-    // 4. We've completed initial auth check (prevents race conditions)
-    // 5. User has never been authenticated in this session
-    if (!user && isPageVisible && initialAuthCheck && !hasEverAuthed) {
+    if (!loading && !user) {
       navigate('/auth');
     }
-  }, [user, loading, navigate, isPageVisible, initialAuthCheck, hasEverAuthed]);
+  }, [user, loading, navigate]);
 
-  // Keep latest URLs in a ref and only revoke on unmount
-  const videoUrlsRef = useRef<string[]>([]);
-
-  useEffect(() => {
-    videoUrlsRef.current = videoUrls;
-  }, [videoUrls]);
-
+  // Cleanup video URLs when component unmounts
   useEffect(() => {
     return () => {
-      videoUrlsRef.current.forEach(url => {
+      videoUrls.forEach(url => {
         try {
           URL.revokeObjectURL(url);
         } catch (error) {
@@ -68,7 +36,7 @@ const VideoApp = () => {
         }
       });
     };
-  }, []);
+  }, [videoUrls]);
 
   useEffect(() => {
     // Handle Stripe success/cancel redirects

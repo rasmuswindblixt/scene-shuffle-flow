@@ -1,38 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Download,
-  RotateCcw,
-  Scissors,
-  Loader2,
-  CheckCircle2,
-  AlertTriangle,
-} from "lucide-react";
-import { usePageVisibility } from '@/hooks/usePageVisibility';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
+import { toast } from "sonner";
+import { Shuffle, Download, Play, Square, Film } from "lucide-react";
+import SceneDetector from "@/components/SceneDetector";
+import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Scene } from "@/types/scene";
 
 interface VideoProcessorProps {
   videoFiles: File[];
@@ -40,716 +18,1053 @@ interface VideoProcessorProps {
   onReset: () => void;
 }
 
-interface Scene {
-  start: number;
-  end: number;
-  duration: number;
-  url: string;
-  originalIndex: number;
-}
-
 const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps) => {
+  const { subscribed, updateFreeExportsUsed, user } = useAuth();
+  const videoPreviewRef = useRef<VideoPreviewRef>(null);
+  
+  // For now, work with first video while building multi-video support
+  const primaryVideoFile = videoFiles[0];
+  const primaryVideoUrl = videoUrls[0];
+  
+  // Core state - dramatically simplified
+  const [currentStep, setCurrentStep] = useState<'analyze' | 'results' | 'export'>('analyze');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [scenes, setScenes] = useState<Scene[]>([]);
-  const [minDuration, setMinDuration] = useState<number>(1);
-  const [maxDuration, setMaxDuration] = useState<number>(6.9);
-  const [shuffle, setShuffle] = useState<boolean>(true);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [progress, setProgress] = useState<number>(0);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [videoFormat, setVideoFormat] = useState<"mp4" | "webm">("mp4");
-  const [currentStep, setCurrentStep] = useState<"analyze" | "process" | "download">("analyze");
-  const [hasStartedAnalysis, setHasStartedAnalysis] = useState<boolean>(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [isMobileSettingsOpen, setIsMobileSettingsOpen] = useState<boolean>(false);
-  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState<boolean>(false);
-  const [downloadProgress, setDownloadProgress] = useState<number>(0);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [downloadURL, setDownloadURL] = useState<string | null>(null);
-  const [isDownloadComplete, setIsDownloadComplete] = useState<boolean>(false);
-  const { user, subscribed } = useAuth();
-  const { toast } = useToast();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const downloadRef = useRef<HTMLAnchorElement>(null);
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const isPageVisible = usePageVisibility();
+  const [shuffledScenes, setShuffledScenes] = useState<Scene[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null);
+  const [exportLogs, setExportLogs] = useState<string[]>([]);
+  const [originalVideoDuration, setOriginalVideoDuration] = useState<number>(0);
+  const [maxVideoDuration, setMaxVideoDuration] = useState<number>(0);
 
-  // Function to format time in seconds to HH:MM:SS
-  const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-
-    const formattedHours = String(hours).padStart(2, '0');
-    const formattedMinutes = String(minutes).padStart(2, '0');
-    const formattedSeconds = String(remainingSeconds).padStart(2, '0');
-
-    return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
-  };
-
-  // Function to calculate total duration of scenes
-  const calculateTotalDuration = (): number => {
-    return scenes.reduce((acc, scene) => acc + scene.duration, 0);
-  };
-
-  // Function to handle scene analysis
-  const handleAnalyze = useCallback(async () => {
-    if (!videoFiles || videoFiles.length === 0) {
-      toast({
-        title: "No videos uploaded",
-        description: "Please upload videos to analyze",
-        variant: "destructive",
+  // Auto-start analysis when component mounts
+  useEffect(() => {
+    // Reset multi-video analysis state
+    setCurrentVideoIndex(0);
+    setAllVideoScenes([]);
+    setIsAnalyzing(true);
+    toast.info("Starting enhanced scene detection...");
+    
+    // Get total duration from all videos
+    let totalDuration = 0;
+    const promises = videoUrls.map((url, index) => {
+    const video = document.createElement('video');
+      video.src = url;
+      return new Promise<number>((resolve, reject) => {
+        video.onloadedmetadata = () => {
+          resolve(video.duration);
+        };
+        video.onerror = (error) => {
+          console.log(`Duration check error for video ${index + 1} (this is normal during cleanup):`, error);
+          resolve(0); // Return 0 duration on error instead of rejecting
+        };
       });
+    });
+    
+    Promise.all(promises).then(durations => {
+      totalDuration = durations.reduce((sum, duration) => sum + duration, 0);
+      setOriginalVideoDuration(totalDuration);
+    });
+  }, []);
+
+  // Calculate extraction percentage
+  const getExtractionPercentage = () => {
+    if (originalVideoDuration === 0) return 0;
+    const extractedDuration = getTotalDuration();
+    return (extractedDuration / originalVideoDuration) * 100;
+  };
+
+  const addLog = (message: string) => {
+    setExportLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
+
+  // Get scenes within the max duration limit
+  const getScenesWithinDuration = (scenes: Scene[], maxDuration: number): Scene[] => {
+    const result: Scene[] = [];
+    let totalDuration = 0;
+    
+    for (const scene of scenes) {
+      if (totalDuration + scene.duration <= maxDuration) {
+        result.push(scene);
+        totalDuration += scene.duration;
+      } else {
+        break;
+      }
+    }
+    
+    return result;
+  };
+
+  // Calculate total duration of scenes within max duration limit
+  const getTotalDuration = () => {
+    const scenesWithinLimit = getScenesWithinDuration(shuffledScenes, maxVideoDuration);
+    return scenesWithinLimit.reduce((total, scene) => total + scene.duration, 0);
+  };
+
+  // Format duration as MM:SS
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // State for multi-video analysis
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [allVideoScenes, setAllVideoScenes] = useState<Scene[][]>([]);
+
+  const handleScenesDetected = (detectedScenes: Scene[]) => {
+    console.log(`Video ${currentVideoIndex + 1} scenes detected:`, detectedScenes.length);
+    
+    // Add video identifier to scenes
+    const videoScenes = detectedScenes.map(scene => ({
+      ...scene,
+      id: `video${currentVideoIndex + 1}_${scene.id}`,
+      videoIndex: currentVideoIndex
+    }));
+    
+    // Store scenes for current video
+    const newAllVideoScenes = [...allVideoScenes];
+    newAllVideoScenes[currentVideoIndex] = videoScenes;
+    setAllVideoScenes(newAllVideoScenes);
+    
+    // Check if we need to analyze more videos
+    if (currentVideoIndex < videoFiles.length - 1) {
+      // Move to next video
+      setCurrentVideoIndex(currentVideoIndex + 1);
+      return; // SceneDetector will be re-rendered with new video
+    }
+    
+    // All videos analyzed, now process all scenes together
+    const allScenes = newAllVideoScenes.flat();
+    console.log("Total raw scenes from all videos:", allScenes.length);
+    
+    // Filter scenes to 1.8-7.7 seconds (will be trimmed by 0.8s total to get 1-6.9s final clips)
+    const filtered = allScenes.filter(scene => 
+      scene.duration >= 1.8 && scene.duration <= 7.7
+    );
+    
+    // Trim 0.4s from start and end of each scene to avoid transitions
+    const initialTrimmedScenes = filtered.map(scene => ({
+      ...scene,
+      startTime: scene.startTime + 0.4,
+      duration: scene.duration - 0.8,
+      id: scene.id + '_trimmed'
+    }));
+
+    // Further trim scenes longer than 6.9s by cutting equal amounts from start and end
+    let scenesMaxTrimmed = 0;
+    const finalTrimmedScenes = initialTrimmedScenes.map(scene => {
+      if (scene.duration > 6.9) {
+        const excess = scene.duration - 6.9;
+        const trimPerSide = excess / 2;
+        scenesMaxTrimmed++;
+        
+        return {
+          ...scene,
+          startTime: scene.startTime + trimPerSide,
+          duration: 6.9,
+          id: scene.id + '_maxTrimmed'
+        };
+      }
+      return scene;
+    });
+    
+    console.log("Filtered scenes (1.8-7.7s):", filtered.length);
+    console.log("Initial trimmed scenes:", initialTrimmedScenes.length);
+    console.log("Scenes additionally trimmed to 6.9s max:", scenesMaxTrimmed);
+    console.log("Final trimmed scenes (max 6.9s):", finalTrimmedScenes.length);
+    
+    if (finalTrimmedScenes.length === 0) {
+      toast.error("No scenes found that can be trimmed to 1-6.9 seconds. Try different videos.");
+      setIsAnalyzing(false);
       return;
     }
 
-    setIsAnalyzing(true);
-    setErrorMessage(null);
-    setScenes([]);
-    setProgress(0);
-    setCurrentStep("analyze");
+    // Shuffle all scenes
+    const shuffled = shuffleWithConstraints(finalTrimmedScenes);
+    
+    setScenes(finalTrimmedScenes);
+    setShuffledScenes(shuffled);
+    setIsAnalyzing(false);
+    setCurrentStep('results');
+    
+    const totalDuration = finalTrimmedScenes.reduce((sum, scene) => sum + scene.duration, 0);
+    // Set max duration to total duration initially
+    setMaxVideoDuration(totalDuration);
+    
+    const videoText = videoFiles.length > 1 ? `${videoFiles.length} videos mixed` : 'video';
+    toast.success(`Found ${finalTrimmedScenes.length} scenes from ${videoText} • Final video: ${formatDuration(totalDuration)}`);
+  };
 
-    const allScenes: Scene[] = [];
+  // Smart shuffle algorithm that prevents adjacent original sequences AND mixes videos evenly
+  const shuffleWithConstraints = (scenes: Scene[]): Scene[] => {
+    if (scenes.length <= 1) return scenes;
+    
+    // First, create a truly mixed shuffle that interleaves videos
+    let shuffled = createMixedShuffle(scenes);
+    let attempts = 0;
+    const maxAttempts = 100;
+    
+    // Then apply the original constraint (no adjacent original sequences)
+    do {
+      if (attempts > 0) {
+        shuffled = createMixedShuffle(scenes);
+      }
+      attempts++;
+    } while (hasAdjacentOriginalOrder(shuffled, scenes) && attempts < maxAttempts);
+    
+    if (attempts >= maxAttempts) {
+      console.warn("Could not find perfect shuffle with constraints, using best mixed attempt");
+    }
+    
+    console.log("Final shuffle video distribution:", getVideoDistribution(shuffled));
+    return shuffled;
+  };
 
-    for (let videoIndex = 0; videoIndex < videoFiles.length; videoIndex++) {
-      const videoFile = videoFiles[videoIndex];
-      const videoUrl = videoUrls[videoIndex];
-      const tempVideo = document.createElement('video');
-      tempVideo.src = videoUrl;
+  // Create a shuffle that properly mixes videos instead of clumping them
+  const createMixedShuffle = (scenes: Scene[]): Scene[] => {
+    // Group scenes by video
+    const videoGroups: { [key: number]: Scene[] } = {};
+    scenes.forEach(scene => {
+      const videoIndex = scene.videoIndex || 0;
+      if (!videoGroups[videoIndex]) {
+        videoGroups[videoIndex] = [];
+      }
+      videoGroups[videoIndex].push(scene);
+    });
+    
+    // Shuffle each video's scenes internally
+    const shuffledGroups = Object.values(videoGroups).map(group => 
+      group.sort(() => Math.random() - 0.5)
+    );
+    
+    // Interleave scenes from different videos
+    const result: Scene[] = [];
+    const maxLength = Math.max(...shuffledGroups.map(group => group.length));
+    
+    for (let i = 0; i < maxLength; i++) {
+      // Randomly order the videos for this round
+      const videoOrder = Object.keys(videoGroups)
+        .map(Number)
+        .sort(() => Math.random() - 0.5);
+      
+      for (const videoIndex of videoOrder) {
+        const group = shuffledGroups[videoIndex];
+        if (i < group.length) {
+          result.push(group[i]);
+        }
+      }
+    }
+    
+    return result;
+  };
 
-      await new Promise<void>((resolve, reject) => {
-        tempVideo.onloadedmetadata = async () => {
-          const duration = tempVideo.duration;
-          const interval = 0.5; // Check every 0.5 seconds
-          let currentTime = 0;
-          let sceneStart = 0;
-          let lastFrameData: string | null = null;
+  // Helper function to see video distribution in shuffle
+  const getVideoDistribution = (scenes: Scene[]): string => {
+    const distribution = scenes.map(scene => `V${(scene.videoIndex || 0) + 1}`).join(' ');
+    const counts = scenes.reduce((acc, scene) => {
+      const key = `Video ${(scene.videoIndex || 0) + 1}`;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {} as { [key: string]: number });
+    
+    return `${JSON.stringify(counts)} | Pattern: ${distribution.substring(0, 50)}${distribution.length > 50 ? '...' : ''}`;
+  };
 
-          while (currentTime < duration) {
-            tempVideo.currentTime = currentTime;
+  // Get video mixing statistics for UI display
+  const getVideoMixingStats = (scenes: Scene[]): string => {
+    const counts = scenes.reduce((acc, scene) => {
+      const videoIndex = scene.videoIndex || 0;
+      acc[videoIndex] = (acc[videoIndex] || 0) + 1;
+      return acc;
+    }, {} as { [key: number]: number });
 
-            await new Promise<void>((resolveFrame) => {
-              tempVideo.onseeked = async () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = tempVideo.videoWidth;
-                canvas.height = tempVideo.videoHeight;
-                const ctx = canvas.getContext('2d');
-                ctx?.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-                const frameData = canvas.toDataURL('image/jpeg', 0.8);
+    const videoLabels = Object.keys(counts).map(key => {
+      const index = parseInt(key);
+      const filename = videoFiles[index]?.name.split('.')[0] || `Video ${index + 1}`;
+      return `${filename}: ${counts[index]} clips`;
+    });
 
-                if (lastFrameData) {
-                  const diff = compareImages(lastFrameData, frameData);
-                  if (diff > 0.02) {
-                    const sceneEnd = currentTime;
-                    const sceneDuration = sceneEnd - sceneStart;
+    return `Mixed from ${videoLabels.join(' • ')}`;
+  };
 
-                    if (sceneDuration >= minDuration && sceneDuration <= maxDuration) {
-                      allScenes.push({
-                        start: sceneStart,
-                        end: sceneEnd,
-                        duration: sceneDuration,
-                        url: videoUrl,
-                        originalIndex: videoIndex,
-                      });
-                    }
-                    sceneStart = currentTime;
-                  }
-                }
-                lastFrameData = frameData;
-                resolveFrame();
-              };
-            });
+  // Check if shuffled array has any adjacent scenes that were adjacent in original
+  const hasAdjacentOriginalOrder = (shuffled: Scene[], original: Scene[]): boolean => {
+    for (let i = 0; i < shuffled.length - 1; i++) {
+      const currentIndex = original.findIndex(s => s.id === shuffled[i].id);
+      const nextIndex = original.findIndex(s => s.id === shuffled[i + 1].id);
+      
+      // Check if they were adjacent in original order
+      if (Math.abs(currentIndex - nextIndex) === 1) {
+        return true;
+      }
+    }
+    return false;
+  };
 
-            currentTime += interval;
-            const overallProgress = ((videoIndex / videoFiles.length) + (currentTime / duration) / videoFiles.length) * 100;
-            setProgress(overallProgress);
-          }
+  // This function is no longer needed as scenes have thumbnails from SceneDetector
+  // Keeping it for potential future use
+  const generateThumbnails = async (scenes: Scene[]): Promise<string[]> => {
+    try {
+      const video = document.createElement('video');
+      video.src = primaryVideoUrl;
+      video.muted = true;
+      video.preload = 'metadata';
+      
+      // Wait for video to load
+      await new Promise((resolve, reject) => {
+        video.onloadedmetadata = resolve;
+        video.onerror = (error) => {
+          console.log('Thumbnail generation video load error (this is normal during cleanup):', error);
+          reject(error);
+        };
+      });
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      canvas.width = 160;
+      canvas.height = 90;
+      
+      const thumbnails: string[] = [];
+      
+      for (const scene of scenes) {
+        // Seek to middle of scene for thumbnail
+        const middleTime = scene.startTime + (scene.duration / 2);
+        video.currentTime = middleTime;
+        
+        await new Promise((resolve) => {
+          video.onseeked = resolve;
+        });
+        
+        // Draw frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        thumbnails.push(dataUrl);
+      }
+      
+      return thumbnails;
+    } catch (error) {
+      console.error('Error generating thumbnails:', error);
+      return [];
+    }
+  };
 
-          // Add last scene if it meets criteria
-          if (sceneStart < duration) {
-            const sceneDuration = duration - sceneStart;
-            if (sceneDuration >= minDuration && sceneDuration <= maxDuration) {
-              allScenes.push({
-                start: sceneStart,
-                end: duration,
-                duration: sceneDuration,
-                url: videoUrl,
-                originalIndex: videoIndex,
-              });
+  const reshuffleScenes = () => {
+    // Reshuffle all scenes (all are kept selected)
+    const newShuffle = shuffleWithConstraints(shuffledScenes);
+    setShuffledScenes(newShuffle);
+    
+    toast.success("Scenes reshuffled!");
+  };
+
+  const drawCredit = async (user: any) => {
+    if (subscribed) {
+      toast.success("Export started!");
+      return;
+    }
+
+    try {
+      // Get or create subscriber record
+      let { data: subscriber, error: selectError } = await supabase
+        .from("subscribers")
+        .select("*")
+        .eq("email", user.email)
+        .maybeSingle();
+
+      if (selectError) {
+        console.error('Error fetching subscriber:', selectError);
+        toast.error("Failed to update export count");
+        return;
+      }
+
+      // Create subscriber if doesn't exist
+      if (!subscriber) {
+        const { data: newSubscriber, error: insertError } = await supabase
+          .from("subscribers")
+          .insert({
+            email: user.email,
+            user_id: user.id,
+            subscribed: false,
+            free_exports_used: 1,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error creating subscriber:', insertError);
+          toast.error("Failed to track export usage");
+          return;
+        }
+        
+        updateFreeExportsUsed(1);
+        toast.success("Export started!");
+      } else {
+        // Increment export count
+        const { data: updatedSubscriber, error: updateError } = await supabase
+          .from("subscribers")
+          .update({
+            free_exports_used: subscriber.free_exports_used + 1,
+          })
+          .eq("email", user.email)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Error updating subscriber:', updateError);
+          toast.error("Failed to track export usage");
+          return;
+        }
+        
+        updateFreeExportsUsed(updatedSubscriber.free_exports_used);
+        toast.success("Export started!");
+      }
+    } catch (error) {
+      console.error('Error drawing credit:', error);
+      toast.error("Failed to track export usage");
+    }
+  };
+
+  const exportVideo = async () => {
+    const scenesToExport = getScenesWithinDuration(shuffledScenes, maxVideoDuration);
+    if (scenesToExport.length === 0) {
+      toast.error("No scenes selected for export");
+      return;
+    }
+
+    // Check authentication using auth context (handles both real users and test users)
+    if (!user) {
+      toast.error("Please sign in to export videos");
+      return;
+    }
+
+    setShowExportDialog(true);
+    setIsExporting(true);
+    setExportProgress(0);
+    setExportLogs([]);
+    setCurrentStep('export');
+    
+    await drawCredit(user);
+    
+    try {
+      addLog("Starting video export...");
+      
+      // Create video element for processing with error handling
+      const videoElement = document.createElement('video');
+      videoElement.src = primaryVideoUrl;
+      videoElement.muted = true;
+      videoElement.preload = 'metadata';
+      videoElement.onerror = (error) => {
+        console.log('Primary video load error (this is normal during cleanup):', error);
+      };
+      
+      addLog("Loading video metadata...");
+      await new Promise((resolve, reject) => {
+        videoElement.onloadedmetadata = resolve;
+        videoElement.onerror = reject;
+      });
+      
+      setExportProgress(10);
+      addLog("Video metadata loaded successfully");
+      
+      // Create canvas for recording - fixed 720p as per requirements
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      canvas.width = 1280;
+      canvas.height = 720;
+      
+      // Process scenes within duration limit sequentially
+      const scenesToExport = getScenesWithinDuration(shuffledScenes, maxVideoDuration);
+      
+      addLog(`Starting recording of ${scenesToExport.length} scenes (within ${formatDuration(maxVideoDuration)} limit)...`);
+      
+      // Set up MediaRecorder with MP4 and higher quality
+      const stream = canvas.captureStream(60); // Increased to 60fps for smoother video
+      let mediaRecorder: MediaRecorder;
+      
+      // Try MP4 first, fallback to WebM if not supported
+      if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264')) {
+        mediaRecorder = new MediaRecorder(stream, { 
+          mimeType: 'video/mp4;codecs=h264',
+          videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+        });
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+        mediaRecorder = new MediaRecorder(stream, { 
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+        });
+      } else {
+        mediaRecorder = new MediaRecorder(stream, { 
+          mimeType: 'video/webm;codecs=vp8',
+          videoBitsPerSecond: 5000000 // 5 Mbps fallback
+        });
+      }
+      
+      const recordedChunks: Blob[] = [];
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunks.push(event.data);
+        }
+      };
+      
+      // Start recording
+      mediaRecorder.start();
+      
+      // Create video elements for all videos with error handling
+      const videoElements = videoUrls.map((url, index) => {
+        const video = document.createElement('video');
+        video.src = url;
+        video.muted = true;
+        video.onerror = (error) => {
+          console.log(`Video ${index + 1} load error (this is normal during cleanup):`, error);
+        };
+        return video;
+      });
+      
+      // Preload all video metadata
+      await Promise.all(videoElements.map(video => 
+        new Promise((resolve, reject) => {
+          video.onloadedmetadata = resolve;
+          video.onerror = reject;
+        })
+      ));
+      for (let i = 0; i < scenesToExport.length; i++) {
+        const scene = scenesToExport[i];
+        const videoIndex = scene.videoIndex || 0;
+        const currentVideo = videoElements[videoIndex];
+        
+        addLog(`Recording scene ${i + 1}/${scenesToExport.length} from video ${videoIndex + 1} (${scene.duration.toFixed(1)}s)`);
+        
+        // Seek to scene start in the correct video
+        currentVideo.currentTime = scene.startTime;
+        await new Promise(resolve => {
+          currentVideo.onseeked = resolve;
+        });
+        
+        // Play and record this scene
+        currentVideo.play();
+        
+        const sceneEndTime = scene.startTime + scene.duration;
+        await new Promise<void>((resolve) => {
+          const drawFrame = () => {
+            if (currentVideo.currentTime < sceneEndTime && !currentVideo.paused) {
+              ctx.drawImage(currentVideo, 0, 0, canvas.width, canvas.height);
+              requestAnimationFrame(drawFrame);
+            } else {
+              currentVideo.pause();
+              resolve();
             }
-          }
+          };
+          drawFrame();
+        });
+        
+        const progress = 10 + ((i + 1) / scenesToExport.length) * 80;
+        setExportProgress(progress);
+      }
+      
+      // Stop recording
+      mediaRecorder.stop();
+      
+      addLog("Finalizing video export...");
+      
+      // Wait for final recording data
+      await new Promise<void>((resolve) => {
+        mediaRecorder.onstop = () => {
+          // Use the same MIME type as the recorder
+          const mimeType = mediaRecorder.mimeType || 'video/webm';
+          const finalBlob = new Blob(recordedChunks, { type: mimeType });
+          setExportedVideoBlob(finalBlob);
           resolve();
         };
+      });
+      
+      setIsExporting(false);
+      setExportProgress(100);
+      addLog("Export completed successfully!");
+      toast.success("Video exported successfully!");
+      
+    } catch (error) {
+      console.error('Export error:', error);
+      addLog(`ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setIsExporting(false);
+      toast.error(`Failed to export video: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
-        tempVideo.onerror = (error) => {
-          console.error("Error loading video metadata:", error);
-          reject("Error loading video metadata.");
+  const downloadVideo = () => {
+    if (!exportedVideoBlob) {
+      toast.error("No exported video available");
+      return;
+    }
+    
+    // Determine file extension based on MIME type
+    let extension = 'webm';
+    if (exportedVideoBlob.type.includes('mp4')) {
+      extension = 'mp4';
+    } else if (exportedVideoBlob.type.includes('webm')) {
+      extension = 'webm';
+    }
+    
+    const url = URL.createObjectURL(exportedVideoBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${primaryVideoFile.name.split('.')[0]}_shuffled.${extension}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Video download started! (${extension.toUpperCase()} format)`);
+  };
+
+  // Final Video Preview Component
+  const FinalVideoPreview = () => {
+    const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const timeoutRef = useRef<NodeJS.Timeout>();
+    const isPlayingRef = useRef(false);
+
+    const playScene = (sceneIndex: number) => {
+      if (!videoRef.current || sceneIndex >= shuffledScenes.length || !isPlayingRef.current) {
+        return;
+      }
+      
+      const scene = shuffledScenes[sceneIndex];
+      const video = videoRef.current;
+      const videoIndex = scene.videoIndex || 0;
+      
+      console.log(`Playing scene ${sceneIndex + 1}/${shuffledScenes.length} from video ${videoIndex + 1}, duration: ${scene.duration}s`);
+      
+      // Switch video source if needed
+      const currentVideoUrl = videoUrls[videoIndex];
+      if (video.src !== currentVideoUrl) {
+        video.src = currentVideoUrl;
+        // Wait for video to load before seeking
+        video.onloadedmetadata = () => {
+          video.currentTime = scene.startTime;
         };
-      });
-    }
-
-    if (shuffle) {
-      // Fisher-Yates shuffle algorithm
-      for (let i = allScenes.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allScenes[i], allScenes[j]] = [allScenes[j], allScenes[i]];
+      } else {
+        video.currentTime = scene.startTime;
       }
-    }
-
-    setScenes(allScenes);
-    setIsAnalyzing(false);
-    setCurrentStep("process");
-    toast({
-      title: "Analysis complete",
-      description: `Found ${allScenes.length} scenes.`,
-    });
-  }, [videoFiles, videoUrls, minDuration, maxDuration, shuffle, toast]);
-
-  // Function to compare two images
-  const compareImages = (img1: string, img2: string): number => {
-    const data1 = img1.substring(img1.indexOf(',') + 1);
-    const data2 = img2.substring(img2.indexOf(',') + 1);
-
-    if (data1.length !== data2.length) {
-      return 1; // Different images
-    }
-
-    let diff = 0;
-    for (let i = 0; i < data1.length; i++) {
-      if (data1[i] !== data2[i]) {
-        diff++;
-      }
-    }
-    return diff / data1.length;
-  };
-
-  // Function to handle video processing and concatenation
-  const handleProcess = async () => {
-    if (!scenes || scenes.length === 0) {
-      toast({
-        title: "No scenes to process",
-        description: "Please analyze videos first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-    setErrorMessage(null);
-    setProgress(0);
-    setCurrentStep("process");
-
-    try {
-      const videoBlobs: Blob[] = [];
-      let currentProgress = 0;
-
-      for (let i = 0; i < scenes.length; i++) {
-        const scene = scenes[i];
-        const videoFile = videoFiles[scene.originalIndex];
-
-        const blob = await getVideoBlob(videoFile, scene.start, scene.end);
-        videoBlobs.push(blob);
-
-        currentProgress = ((i + 1) / scenes.length) * 100;
-        setProgress(currentProgress);
-      }
-
-      // Concatenate video blobs
-      const concatenatedBlob = new Blob(videoBlobs, { type: 'video/mp4' });
-      const url = URL.createObjectURL(concatenatedBlob);
-
-      setDownloadURL(url);
-      setIsProcessing(false);
-      setCurrentStep("download");
-      toast({
-        title: "Processing complete",
-        description: "Your video is ready to download.",
-      });
-    } catch (error: any) {
-      console.error("Error processing videos:", error);
-      setErrorMessage(error.message || "Failed to process videos.");
-      setIsProcessing(false);
-    }
-  };
-
-  // Function to get a video blob for a specific time range
-  const getVideoBlob = (videoFile: File, start: number, end: number): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement('video');
-      video.src = URL.createObjectURL(videoFile);
-      video.muted = true; // Mute the video to prevent autoplay issues
-      video.crossOrigin = "anonymous"; // Enable CORS
-
-      video.addEventListener('loadedmetadata', () => {
-        video.currentTime = start;
-
-        video.addEventListener('seeked', async () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-          // Use MediaRecorder to capture the video
-          const stream = canvas.captureStream();
-          const recorder = new MediaRecorder(stream, {
-            mimeType: 'video/webm;codecs=vp9' // force webm for transparency
-          });
-          const chunks: Blob[] = [];
-          recorder.ondataavailable = (event) => chunks.push(event.data);
-          recorder.onstop = () => {
-            const completeBlob = new Blob(chunks, { type: 'video/webm' });
-            resolve(completeBlob);
-            URL.revokeObjectURL(video.src); // Clean up the video URL
-          };
-
-          recorder.start();
-          setTimeout(() => {
-            recorder.stop();
-            video.remove(); // Clean up the video element
-          }, (end - start) * 1000); // Stop after the duration of the clip
-        });
-
-        video.addEventListener('error', (error) => {
-          console.error("Error during video processing:", error);
-          reject(error);
-          URL.revokeObjectURL(video.src); // Clean up the video URL
-          video.remove(); // Clean up the video element
-        });
-
-        video.play().catch(error => {
-          console.error("Autoplay prevented:", error);
-          reject(error);
-          URL.revokeObjectURL(video.src); // Clean up the video URL
-          video.remove(); // Clean up the video element
-        });
-      });
-    });
-  };
-
-  // Cleanup video URLs when component unmounts
-  useEffect(() => {
-    return () => {
-      // Only cleanup if page is visible or component is actually unmounting
-      if (isPageVisible || document.hidden === false) {
-        scenes.forEach(scene => {
-          if (scene.url && scene.url.startsWith('blob:')) {
-            try {
-              URL.revokeObjectURL(scene.url);
-            } catch (error) {
-              console.log('Error revoking scene URL:', error);
+      
+      // Wait for seek to complete, then play
+      const handleSeeked = () => {
+        video.removeEventListener('seeked', handleSeeked);
+        if (isPlayingRef.current) {
+          video.play().catch(console.error);
+          
+          // Stop at scene end and move to next
+          timeoutRef.current = setTimeout(() => {
+            if (!isPlayingRef.current) return;
+            
+            video.pause();
+            const nextIndex = sceneIndex + 1;
+            
+            if (nextIndex < shuffledScenes.length) {
+              setCurrentSceneIndex(nextIndex);
+              // Small delay to ensure state update
+              setTimeout(() => playScene(nextIndex), 100);
+            } else {
+              // End of preview
+              setIsPlaying(false);
+              isPlayingRef.current = false;
+              setCurrentSceneIndex(0);
+              console.log("Preview completed");
             }
-          }
-        });
+          }, scene.duration * 1000);
+        }
+      };
+      
+      video.addEventListener('seeked', handleSeeked);
+    };
+
+    const startPreview = () => {
+      console.log("Starting preview...");
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+      setCurrentSceneIndex(0);
+      
+      // Small delay to ensure state updates
+      setTimeout(() => playScene(0), 100);
+    };
+
+    const stopPreview = () => {
+      console.log("Stopping preview...");
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
-    };
-  }, [scenes, isPageVisible]);
-
-  // Modified effect to handle page visibility
-  useEffect(() => {
-    // Don't restart analysis if page was just hidden and is now visible again
-    if (!isPageVisible) {
-      return;
-    }
-
-    if (videoFiles.length > 0 && scenes.length === 0 && !hasStartedAnalysis && currentStep === 'analyze') {
-      setHasStartedAnalysis(true);
-      handleAnalyze();
-    }
-  }, [videoFiles, scenes.length, hasStartedAnalysis, currentStep, isPageVisible, handleAnalyze]);
-
-  // Add beforeunload warning during processing to prevent accidental navigation
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isAnalyzing || isProcessing) {
-        e.preventDefault();
-        e.returnValue = 'You have an ongoing video analysis or processing. Are you sure you want to leave?';
-        return 'You have an ongoing video analysis or processing. Are you sure you want to leave?';
+      if (videoRef.current) {
+        videoRef.current.pause();
       }
+      setCurrentSceneIndex(0);
     };
 
-    if (isAnalyzing || isProcessing) {
-      window.addEventListener('beforeunload', handleBeforeUnload);
-    }
+    useEffect(() => {
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
+    }, []);
 
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [isAnalyzing, isProcessing]);
-
-  // Add warning about tab switching during analysis
-  const TabSwitchWarning = () => (
-    <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-600 rounded-lg p-4 mb-4">
-      <div className="flex items-center space-x-3 text-blue-800 dark:text-blue-200">
-        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">i</div>
-        <div>
-          <p className="font-semibold text-base">Tab Switching Protection Active</p>
-          <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-            Your analysis will continue even if you switch tabs. Progress is automatically saved.
-          </p>
+    return (
+      <div className="space-y-4">
+        <div className="relative bg-black rounded-lg overflow-hidden">
+          <video
+            ref={videoRef}
+            src={primaryVideoUrl}
+            className="w-full max-h-64 object-contain"
+            muted
+            controls={false}
+            onError={(e) => {
+              console.log('Preview video load error (this is normal during cleanup):', e);
+            }}
+          />
+          {isPlaying && (
+            <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-sm">
+              Scene {currentSceneIndex + 1} of {shuffledScenes.length}
+            </div>
+          )}
+        </div>
+        
+        <div className="flex gap-2 justify-center">
+          <Button 
+            onClick={startPreview} 
+            disabled={isPlaying}
+            variant="outline"
+            size="sm"
+          >
+            <Play className="w-4 h-4 mr-2" />
+            Preview Final Video
+          </Button>
+          <Button 
+            onClick={stopPreview} 
+            disabled={!isPlaying}
+            variant="outline"
+            size="sm"
+          >
+            <Square className="w-4 h-4 mr-2" />
+            Stop Preview
+          </Button>
         </div>
       </div>
-    </div>
-  );
-
-  // Function to handle resetting the state
-  const handleResetState = () => {
-    // Revoke the download URL if it exists
-    if (downloadURL) {
-      URL.revokeObjectURL(downloadURL);
-      setDownloadURL(null);
-    }
-
-    // Reset all state variables to their initial values
-    setScenes([]);
-    setMinDuration(1);
-    setMaxDuration(6.9);
-    setShuffle(true);
-    setIsAnalyzing(false);
-    setIsProcessing(false);
-    setProgress(0);
-    setErrorMessage(null);
-    setVideoFormat("mp4");
-    setCurrentStep("analyze");
-    setHasStartedAnalysis(false);
-    setIsSettingsOpen(false);
-    setIsMobileSettingsOpen(false);
-    setIsDownloadDialogOpen(false);
-    setDownloadProgress(0);
-    setDownloadError(null);
-    setIsDownloadComplete(false);
-
-    // Call the onReset function passed from the parent component
-    onReset();
-  };
-
-  // Function to handle initiating the download
-  const handleDownload = async () => {
-    if (!downloadURL) {
-      toast({
-        title: "No video to download",
-        description: "Please process videos first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsDownloadDialogOpen(true);
-    setDownloadError(null);
-    setDownloadProgress(0);
-    setIsDownloadComplete(false);
-
-    try {
-      const response = await fetch(downloadURL);
-      const totalBytes = response.headers.get('Content-Length');
-      const reader = response.body?.getReader();
-
-      if (!reader || !totalBytes) {
-        throw new Error('Failed to start download');
-      }
-
-      const totalBytesNumber = parseInt(totalBytes, 10);
-      let receivedBytes = 0;
-      const chunks: Uint8Array[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        if (value) {
-          chunks.push(value);
-          receivedBytes += value.length;
-          const progress = Math.round((receivedBytes / totalBytesNumber) * 100);
-          setDownloadProgress(progress);
-        }
-      }
-
-      const completeBlob = new Blob(chunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(completeBlob);
-
-      // Create a temporary link element and trigger the download
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `clipmixpro_output.${videoFormat}`; // Set the filename
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      URL.revokeObjectURL(url); // Clean up the URL
-      setIsDownloadComplete(true);
-      toast({
-        title: "Download complete",
-        description: "Your video has been saved.",
-      });
-    } catch (error: any) {
-      console.error("Download error:", error);
-      setDownloadError(error.message || "Download failed");
-      toast({
-        title: "Download failed",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
-    }
+    );
   };
 
   return (
     <div className="container mx-auto px-6 py-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header Section */}
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+      {/* Header */}
         <div className="text-center">
-          <h2 className="text-3xl font-bold mb-4">Video Processor</h2>
+          <h2 className="text-3xl font-bold mb-2">
+            {currentStep === 'analyze' && `Analyzing Your Video${videoFiles.length > 1 ? 's' : ''}`}
+            {currentStep === 'results' && 'Shuffled Results'}
+            {currentStep === 'export' && 'Exporting Video'}
+          </h2>
+          {videoFiles.length > 1 && currentStep === 'analyze' && (
+            <p className="text-sm text-primary font-medium">
+              <Film className="w-4 h-4 inline mr-1" />
+              Mixing {videoFiles.length} videos together
+            </p>
+          )}
           <p className="text-muted-foreground">
-            Mix and shuffle video scenes to create engaging content
-          </p>
-        </div>
-
-        {/* Progress Bar */}
-        {(isAnalyzing || isProcessing) && (
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <p className="font-medium">
-                  {isAnalyzing ? "Analyzing Videos" : "Processing Videos"}
-                </p>
-                <span className="text-sm text-muted-foreground">
-                  {progress.toFixed(1)}%
+            {currentStep === 'analyze' && (
+              <span>
+                Detecting scenes and optimizing to 1-6.9 second clips (removing 0.8s transitions, centering long clips)...
+                {videoFiles.length > 1 && (
+                  <>
+                    <br />
+                    <span className="text-primary font-medium">
+                      Analyzing video {currentVideoIndex + 1} of {videoFiles.length}: {videoFiles[currentVideoIndex]?.name}
                 </span>
-              </div>
-              <Progress value={progress} />
-            </CardContent>
-          </Card>
-        )}
+                  </>
+                )}
+              </span>
+            )}
+            {currentStep === 'results' && `${shuffledScenes.length} scenes ready for export • Final video: ${formatDuration(getTotalDuration())}`}
+            {currentStep === 'export' && 'Creating your shuffled video...'}
+              </p>
+            </div>
+
+          {/* Video Preview */}
+        <VideoPreview ref={videoPreviewRef} videoUrl={primaryVideoUrl} />
 
         {/* Analysis Step */}
         {currentStep === 'analyze' && (
           <div className="space-y-6">
-            {/* Tab Switch Protection Notice */}
-            <TabSwitchWarning />
-            
             {/* Warning Message - Always visible during analysis */}
             {isAnalyzing && (
               <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-4">
                 <div className="flex items-center space-x-3 text-yellow-800 dark:text-yellow-200">
                   <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">!</div>
                   <div>
-                    <p className="font-semibold text-base">Analysis in Progress</p>
+                    <p className="font-semibold text-base">Important: Please don't leave this page!</p>
                     <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                      You can safely switch tabs - your progress will be maintained automatically.
+                      Leaving this window may interrupt the analysis process. We're working on a fix for this.
                     </p>
                   </div>
                 </div>
               </div>
             )}
             
-            {/* Analysis Settings Card */}
             <Card>
               <CardHeader>
-                <CardTitle>Analysis Settings</CardTitle>
+                <CardTitle>Scene Detection in Progress</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Min Duration Slider */}
-                <div className="space-y-2">
-                  <Label htmlFor="min-duration">Min. Scene Duration (seconds)</Label>
-                  <Slider
-                    id="min-duration"
-                    min={1}
-                    max={6}
-                    step={0.1}
-                    defaultValue={[minDuration]}
-                    onValueChange={(value) => setMinDuration(value[0])}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    {minDuration.toFixed(1)} seconds
-                  </p>
-                </div>
-
-                {/* Max Duration Slider */}
-                <div className="space-y-2">
-                  <Label htmlFor="max-duration">Max. Scene Duration (seconds)</Label>
-                  <Slider
-                    id="max-duration"
-                    min={minDuration}
-                    max={7}
-                    step={0.1}
-                    defaultValue={[maxDuration]}
-                    onValueChange={(value) => setMaxDuration(value[0])}
-                    disabled={minDuration > 6}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    {maxDuration.toFixed(1)} seconds
-                  </p>
-                </div>
-
-                {/* Shuffle Checkbox */}
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="shuffle"
-                    checked={shuffle}
-                    onCheckedChange={(checked) => setShuffle(checked === true)}
-                  />
-                  <Label htmlFor="shuffle">Shuffle Scenes</Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Analyze Button */}
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={handleResetState}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset
-              </Button>
-              <Button
-                onClick={handleAnalyze}
-                disabled={isAnalyzing}
-              >
+              <CardContent>
                 {isAnalyzing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analyzing...
-                  </>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                      <span>Analyzing video for scene changes...</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Enhanced detection analyzes every 0.5s with improved sensitivity to find more scenes.<br/>
+                      Scenes are filtered to 1.8-7.7s, trimmed by 0.8s (transitions removed), then capped at 6.9s max.
+                    </p>
+                  </div>
                 ) : (
-                  <>
-                    <Scissors className="w-4 h-4 mr-2" />
-                    Analyze Videos
-                  </>
+                  <p className="text-center">Analysis complete!</p>
                 )}
-              </Button>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
-        {/* Process Step */}
-        {currentStep === "process" && (
+          {/* Scene Detection Component */}
+        {isAnalyzing && (
+            <SceneDetector
+          videoUrl={videoUrls[currentVideoIndex]}
+              onScenesDetected={handleScenesDetected}
+          isAnalyzing={true}
+          segmentLength={120}
+          frameInterval={0.5}
+          delayMs={25}
+          key={`scene-detector-${currentVideoIndex}`}
+        />
+        )}
+
+        {/* Results Step */}
+        {currentStep === 'results' && (
           <div className="space-y-6">
-            {/* Process Settings Card */}
+            {/* Final Video Preview */}
             <Card>
               <CardHeader>
-                <CardTitle>Process Settings</CardTitle>
+                <CardTitle>Final Video Preview</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Video Format Select */}
-                <div className="space-y-2">
-                  <Label htmlFor="video-format">Video Format</Label>
-                  <Select onValueChange={(v) => setVideoFormat(v as "mp4" | "webm")} defaultValue={videoFormat}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a video format" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mp4">MP4</SelectItem>
-                      <SelectItem value="webm">WebM</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <CardContent>
+                <FinalVideoPreview />
+              </CardContent>
+            </Card>
+
+            {/* Scene Preview */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Shuffled Preview</CardTitle>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {shuffledScenes.length} scenes ready for export
+                    {videoFiles.length > 1 && (
+                      <>
+                        <br />
+                        <span className="text-primary font-medium">
+                          {getVideoMixingStats(shuffledScenes)}
+                        </span>
+                      </>
+                    )}
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-6 gap-3">
+                  {shuffledScenes.map((scene, index) => (
+                    <div key={`shuffled-${scene.id}-${index}`} className="relative group">
+                      <div className="relative rounded-lg border-2 border-primary bg-primary/5">
+                        <img
+                          src={scene.thumbnail}
+                          alt={`Shuffled ${index + 1}`}
+                          className="w-full aspect-video object-cover rounded-lg"
+                        />
+                        
+                        {/* Scene Number */}
+                        <div className="absolute bottom-1 left-1 bg-primary text-white text-xs px-1 rounded">
+                          {index + 1}
+                        </div>
+                        
+                        {/* Video Indicator */}
+                        {videoFiles.length > 1 && (
+                          <div className="absolute top-1 right-1 bg-secondary text-primary text-xs px-1 rounded font-bold">
+                            V{(scene.videoIndex || 0) + 1}
+                          </div>
+                        )}
+                        
+                        {/* Hover Info */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                          <div className="text-white text-xs font-medium text-center">
+                            Scene {index + 1}
+                            {videoFiles.length > 1 && (
+                              <>
+                                <br />
+                                <span className="text-xs bg-primary/80 px-1 rounded">
+                                  Video {(scene.videoIndex || 0) + 1}
+                                </span>
+                              </>
+                            )}
+                            <br />
+                            {scene.duration.toFixed(1)}s
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Process Button */}
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={handleResetState}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset
-              </Button>
-              <Button
-                onClick={handleProcess}
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Scissors className="w-4 h-4 mr-2" />
-                    Process Videos
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Download Step */}
-        {currentStep === "download" && (
-          <div className="space-y-6">
-            {/* Download Ready Card */}
+            {/* Max Duration Control */}
             <Card>
               <CardHeader>
-                <CardTitle>Download Ready</CardTitle>
+                <CardTitle>Video Length Control</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p>Your video is ready to download!</p>
-                <Button className="w-full" onClick={handleDownload}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Download Video
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Reset Button */}
-            <Button variant="outline" onClick={handleResetState}>
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Reset
-            </Button>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {errorMessage && (
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <AlertTriangle className="h-5 w-5 text-red-400" aria-hidden="true" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">
-                  There was an error processing your video.
-                </h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>{errorMessage}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Download Dialog */}
-        <Dialog open={isDownloadDialogOpen} onOpenChange={setIsDownloadDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Downloading Video</DialogTitle>
-              <DialogDescription>
-                Please wait while your video is being downloaded.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              {downloadError ? (
-                <div className="text-red-500">Error: {downloadError}</div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium">Download Progress</p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Max Video Duration</label>
                     <span className="text-sm text-muted-foreground">
-                      {downloadProgress.toFixed(1)}%
+                      {formatDuration(maxVideoDuration)} / {formatDuration(shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0))}
                     </span>
                   </div>
-                  <Progress value={downloadProgress} />
-                </>
-              )}
+
+                  <Slider
+                    value={[maxVideoDuration]}
+                    onValueChange={(value) => setMaxVideoDuration(value[0])}
+                    max={shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0)}
+                    min={Math.min(60, shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0))} // Min 1 minute or total if less
+                          step={0.1}
+                    className="w-full"
+                  />
+              
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{formatDuration(Math.min(60, shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0)))}</span>
+                    <span>{formatDuration(shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0))}</span>
+                  </div>
+
+                  {getScenesWithinDuration(shuffledScenes, maxVideoDuration).length < shuffledScenes.length && (
+                    <div className="text-center text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                      <Film className="w-4 h-4 inline mr-1" />
+                      {shuffledScenes.length - getScenesWithinDuration(shuffledScenes, maxVideoDuration).length} scenes will be excluded to fit duration limit
+                    </div>
+                  )}
+                  </div>
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Export Results</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-center space-y-2">
+                  <div className="space-y-1">
+                    <div className="text-2xl font-bold text-primary">
+                      {getScenesWithinDuration(shuffledScenes, maxVideoDuration).length} scenes
+                    </div>
+                    <div className="text-xl font-semibold text-muted-foreground">
+                      Final video: {formatDuration(getTotalDuration())}
+                    </div>
+                <div className="text-sm text-muted-foreground">
+                      {getExtractionPercentage().toFixed(1)}% of original video extracted
+                      {originalVideoDuration > 0 && (
+                        <span className="ml-2">
+                          (from {formatDuration(originalVideoDuration)} original)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground">
+                    Optimized to 1-6.9 seconds (transitions removed, long clips centered) and shuffled to avoid original order
+                  </p>
+                </div>
+                
+                <div className="flex gap-4 justify-center">
+                  <Button variant="outline" onClick={reshuffleScenes}>
+                    <Shuffle className="w-4 h-4 mr-2" />
+                    Shuffle Again
+                </Button>
+                  <Button onClick={exportVideo} size="lg">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Video (HD MP4/WebM)
+                </Button>
+                </div>
+                
+                <div className="text-center">
+                  <Button variant="ghost" onClick={onReset}>
+                    Upload Different Video
+                </Button>
+                </div>
+              </CardContent>
+            </Card>
+        </div>
+        )}
+
+      {/* Export Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+              <DialogTitle>Exporting Shuffled Video</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+                <p>Processing {getScenesWithinDuration(shuffledScenes, maxVideoDuration).length} scenes within duration limit...</p>
+                <p>Quality: HD 720p (1280x720) • Format: MP4/WebM • Bitrate: 8 Mbps</p>
             </div>
-            {isDownloadComplete && (
-              <div className="flex items-center space-x-2 text-green-500">
-                <CheckCircle2 className="h-4 w-4" />
-                <p>Download complete!</p>
+            
+            {isExporting && (
+              <div className="space-y-2">
+                <Progress value={exportProgress} className="w-full" />
+                <p className="text-sm text-center text-muted-foreground">
+                  {exportProgress.toFixed(0)}% complete
+                </p>
+                </div>
+              )}
+
+              {exportedVideoBlob && (
+                <div className="space-y-2">
+                  <p className="text-sm text-center text-green-600">
+                    Export completed successfully!
+                  </p>
+                  <Button onClick={downloadVideo} className="w-full">
+                    Download Shuffled Video
+                  </Button>
+                </div>
+              )}
+                
+                {/* Export Logs */}
+              {exportLogs.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-md max-h-32 overflow-y-auto">
+                  <h4 className="text-sm font-medium mb-2">Processing Logs:</h4>
+                  <div className="text-xs space-y-1">
+                    {exportLogs.map((log, index) => (
+                      <div key={index} className="text-gray-600">
+                        {log}
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+              </div>
     </div>
   );
 };
