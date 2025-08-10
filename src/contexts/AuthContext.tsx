@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [lastAuthCheck, setLastAuthCheck] = useState<number>(0);
+  const [authListenerActive, setAuthListenerActive] = useState(true);
 
   // Priority effect: Handle test users if flags are set
   React.useEffect(() => {
@@ -225,53 +225,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let authStateTimer: NodeJS.Timeout;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        const now = Date.now();
-        console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session, 'time since last check:', now - lastAuthCheck);
+        console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session, 'listener active:', authListenerActive);
         
-        // Throttle auth state changes to prevent rapid firing during tab switches
-        if (isInitialized && (now - lastAuthCheck) < 2000) {
-          console.log('[AUTH] Throttling auth state change - too frequent');
+        // Completely ignore auth state changes once initialized and user is authenticated
+        if (!authListenerActive) {
+          console.log('[AUTH] Auth listener disabled - ignoring auth state change');
           return;
         }
-        
-        setLastAuthCheck(now);
         
         // Clear any pending auth state updates
         if (authStateTimer) {
           clearTimeout(authStateTimer);
         }
         
-        // Debounce auth state changes to prevent issues during tab switching
+        // Debounce auth state changes
         authStateTimer = setTimeout(() => {
-          const previousUserId = user?.id;
-          const newUserId = session?.user?.id;
-          
-          // Skip if same user and already initialized (prevents tab switch issues)
-          if (isInitialized && previousUserId === newUserId && session?.user) {
-            console.log('[AUTH] Same user, already initialized - skipping auth update');
-            return;
-          }
-          
           setSession(session);
           setUser(session?.user ?? null);
           
           if (session?.user) {
             console.log('[AUTH] User logged in, will check subscription...');
-            
-            // Only show loading and check subscription if this is a new user or initial load
-            if (!isInitialized || previousUserId !== newUserId) {
-              console.log('[AUTH] New user or initial load, checking subscription...');
-              setLoading(true);
-              setTimeout(() => {
-                checkSubscription(session).finally(() => {
-                  setLoading(false);
-                  setIsInitialized(true);
-                });
-              }, 100);
-            } else {
-              console.log('[AUTH] Same user returning to tab, skipping subscription check');
-              setIsInitialized(true);
-            }
+            setLoading(true);
+            setTimeout(() => {
+              checkSubscription(session).finally(() => {
+                setLoading(false);
+                setIsInitialized(true);
+                // Disable auth listener once user is fully authenticated and initialized
+                setAuthListenerActive(false);
+                console.log('[AUTH] User fully initialized - disabling auth listener');
+              });
+            }, 100);
           } else {
             console.log('[AUTH] No user session, resetting subscription state');
             setSubscribed(false);
@@ -281,7 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
             setIsInitialized(true);
           }
-        }, 500); // Increased debounce to 500ms
+        }, 300);
       }
     );
 
@@ -300,6 +283,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             checkSubscription(session).finally(() => {
               setLoading(false);
               setIsInitialized(true);
+              // Disable auth listener once user is fully initialized
+              setAuthListenerActive(false);
+              console.log('[AUTH] Initial user fully initialized - disabling auth listener');
             });
           }, 100);
         } else {
@@ -377,9 +363,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSubscriptionTier(null);
         setFreeExportsUsed(0);
         setSession(null);
+        setIsInitialized(false);
+        setAuthListenerActive(true); // Re-enable for next auth
         return;
       }
     }
+    
+    // Re-enable auth listener before signing out
+    setAuthListenerActive(true);
+    setIsInitialized(false);
+    
     await supabase.auth.signOut();
   };
 
