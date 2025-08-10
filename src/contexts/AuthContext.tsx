@@ -73,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   const [authListenerActive, setAuthListenerActive] = useState(true);
+  const [permanentlyInitialized, setPermanentlyInitialized] = useState(false);
 
   // Priority effect: Handle test users if flags are set
   React.useEffect(() => {
@@ -101,9 +102,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkSubscription = async (sessionParam?: Session | null, retryCount = 0) => {
     console.log('[AUTH] checkSubscription called, retry count:', retryCount, 'initialized:', isInitialized);
     
-    // Skip if user is already fully initialized (prevents tab switch calls)
-    if (isInitialized && retryCount === 0) {
-      console.log('[AUTH] User already initialized, skipping subscription check');
+    // Skip if user is permanently initialized (prevents tab switch calls)
+    if (permanentlyInitialized) {
+      console.log('[AUTH] User permanently initialized, skipping subscription check');
       return;
     }
     
@@ -224,6 +225,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
          window.localStorage.getItem(TEST_USER_2_KEY) === '1')) {
       setLoading(false);
       setIsInitialized(true);
+      setPermanentlyInitialized(true);
+      setAuthListenerActive(false);
       return;
     }
     console.log('[AUTH] useEffect running. Initializing AuthContext.');
@@ -256,9 +259,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               checkSubscription(session).finally(() => {
                 setLoading(false);
                 setIsInitialized(true);
+                setPermanentlyInitialized(true);
                 // Disable auth listener once user is fully authenticated and initialized
                 setAuthListenerActive(false);
-                console.log('[AUTH] User fully initialized - disabling auth listener');
+                console.log('[AUTH] User fully initialized - disabling auth listener permanently');
               });
             }, 100);
           } else {
@@ -289,9 +293,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             checkSubscription(session).finally(() => {
               setLoading(false);
               setIsInitialized(true);
+              setPermanentlyInitialized(true);
               // Disable auth listener once user is fully initialized
               setAuthListenerActive(false);
-              console.log('[AUTH] Initial user fully initialized - disabling auth listener');
+              console.log('[AUTH] Initial user fully initialized - disabling auth listener permanently');
             });
           }, 100);
         } else {
@@ -370,6 +375,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setFreeExportsUsed(0);
         setSession(null);
         setIsInitialized(false);
+        setPermanentlyInitialized(false);
         setAuthListenerActive(true); // Re-enable for next auth
         return;
       }
@@ -378,6 +384,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Re-enable auth listener before signing out
     setAuthListenerActive(true);
     setIsInitialized(false);
+    setPermanentlyInitialized(false);
     
     await supabase.auth.signOut();
   };
@@ -389,7 +396,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     freeExportsUsed,
     subscriptionTier,
     subscriptionEnd,
-    loading,
+    loading: permanentlyInitialized ? false : loading, // Override loading once permanently initialized
     signIn,
     signUp,
     signOut,
