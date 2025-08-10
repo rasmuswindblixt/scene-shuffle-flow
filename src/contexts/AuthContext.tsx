@@ -72,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [lastAuthCheck, setLastAuthCheck] = useState<number>(0);
 
   // Priority effect: Handle test users if flags are set
   React.useEffect(() => {
@@ -207,6 +208,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('[AUTH] setFreeExportsUsed called with:', count);
   };
 
+  // Throttling is now handled in the auth state listener above
+
   useEffect(() => {
     setLoading(true);
     // Skip Supabase session if any test user is active
@@ -222,7 +225,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let authStateTimer: NodeJS.Timeout;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session);
+        const now = Date.now();
+        console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session, 'time since last check:', now - lastAuthCheck);
+        
+        // Throttle auth state changes to prevent rapid firing during tab switches
+        if (isInitialized && (now - lastAuthCheck) < 2000) {
+          console.log('[AUTH] Throttling auth state change - too frequent');
+          return;
+        }
+        
+        setLastAuthCheck(now);
         
         // Clear any pending auth state updates
         if (authStateTimer) {
@@ -233,6 +245,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authStateTimer = setTimeout(() => {
           const previousUserId = user?.id;
           const newUserId = session?.user?.id;
+          
+          // Skip if same user and already initialized (prevents tab switch issues)
+          if (isInitialized && previousUserId === newUserId && session?.user) {
+            console.log('[AUTH] Same user, already initialized - skipping auth update');
+            return;
+          }
           
           setSession(session);
           setUser(session?.user ?? null);
@@ -263,7 +281,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
             setIsInitialized(true);
           }
-        }, 300); // 300ms debounce
+        }, 500); // Increased debounce to 500ms
       }
     );
 
