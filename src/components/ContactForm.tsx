@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,22 @@ import { Mail, Send, X } from "lucide-react";
 interface ContactFormProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMessage?: string;
+  title?: string;
 }
 
-const ContactForm = ({ isOpen, onClose }: ContactFormProps) => {
+const ContactForm = ({ isOpen, onClose, initialMessage = "", title = "Contact ClipMixPRO" }: ContactFormProps) => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    message: ""
+    message: initialMessage
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Update message when initialMessage changes
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, message: initialMessage }));
+  }, [initialMessage]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -54,7 +61,7 @@ const ContactForm = ({ isOpen, onClose }: ContactFormProps) => {
 
       if (response.ok) {
         toast.success("Message sent successfully! We'll get back to you soon.");
-        setFormData({ name: "", email: "", message: "" });
+        setFormData({ name: "", email: "", message: initialMessage });
         onClose();
       } else {
         throw new Error('Failed to send message');
@@ -68,7 +75,7 @@ const ContactForm = ({ isOpen, onClose }: ContactFormProps) => {
   };
 
   const handleCancel = () => {
-    setFormData({ name: "", email: "", message: "" });
+    setFormData({ name: "", email: "", message: initialMessage });
     onClose();
   };
 
@@ -80,7 +87,7 @@ const ContactForm = ({ isOpen, onClose }: ContactFormProps) => {
             <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
               <Mail className="w-4 h-4 text-white" />
             </div>
-            Contact ClipMixPRO
+            {title}
           </DialogTitle>
         </DialogHeader>
         

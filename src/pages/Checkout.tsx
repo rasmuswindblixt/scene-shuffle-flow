@@ -14,10 +14,18 @@ const Checkout = () => {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Add a delay before redirecting to prevent tab switch issues
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/auth');
-      return;
+      // Add delay to prevent navigation during temporary auth state changes (tab switching)
+      const timer = setTimeout(() => {
+        // Double-check that user is still null after delay
+        if (!user) {
+          navigate('/auth');
+        }
+      }, 1000); // 1 second delay
+
+      return () => clearTimeout(timer);
     }
 
     if (session && !isRedirecting && !error) {

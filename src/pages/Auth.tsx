@@ -150,11 +150,11 @@ const Auth = () => {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="Enter your email"
+                placeholder="Enter your email or 'admin' for test user"
               />
             </div>
             <div className="space-y-2">
@@ -181,6 +181,13 @@ const Auth = () => {
               }
             </Button>
           </form>
+          {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+            <div className="text-xs text-center text-muted-foreground mt-2">
+              <b>Dev mode:</b> Log in with <code>admin</code> / <code>eqsZvy6d89!</code> for premium test user.
+              <br />
+              Or use <code>admin_2</code> / <code>eqsZvy6d89!</code> for free tier test user.
+            </div>
+          )}
           
           <div className="mt-4 text-center">
             <Button

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare } from "lucide-react";
+import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare, Bug, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,8 +15,94 @@ const Account = () => {
   const navigate = useNavigate();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
   const [isFeedbackFormOpen, setIsFeedbackFormOpen] = useState(false);
+  const [isBugReportFormOpen, setIsBugReportFormOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
+
+  // Bug status data
+  const bugs = [
+    {
+      id: 1,
+      title: "Users cannot cancel subscriptions",
+      date: "2025.08.05",
+      status: "fixed" as const
+    },
+    {
+      id: 2,
+      title: "Page reloads and video processing interrupts when switching tabs",
+      date: "2025.08.07",
+      status: "fixed" as const
+    },
+    {
+      id: 3,
+      title: "Some users experience slow video export",
+      date: "2025.08.06",
+      status: "investigating" as const
+    },
+    {
+      id: 4,
+      title: "Ability to upload more than 2 videos",
+      date: "2025.08.09",
+      status: "under_development" as const
+    },
+    {
+      id: 5,
+      title: "Upload videos longer than 30 minutes",
+      date: "2025.08.08",
+      status: "under_development" as const
+    },
+    {
+      id: 6,
+      title: "Add more formats when exporting videos (MP4, AVI, etc.)",
+      date: "2025.08.08",
+      status: "under_development" as const
+    },
+    {
+      id: 7,
+      title: "Implement free trial",
+      date: "2025.08.01",
+      status: "investigating" as const
+    }
+  ];
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'fixed':
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'investigating':
+        return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
+      case 'under_development':
+        return <Clock className="w-4 h-4 text-blue-500" />;
+      default:
+        return <Bug className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'fixed':
+        return 'Fixed';
+      case 'investigating':
+        return 'Investigating';
+      case 'under_development':
+        return 'Under Development';
+      default:
+        return 'Reported';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'fixed':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'investigating':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'under_development':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
 
   const handleRefreshSubscription = async () => {
     setRefreshing(true);
@@ -53,9 +139,18 @@ const Account = () => {
     }
   };
 
+  // Add a delay before redirecting to prevent tab switch issues
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/auth');
+      // Add delay to prevent navigation during temporary auth state changes (tab switching)
+      const timer = setTimeout(() => {
+        // Double-check that user is still null after delay
+        if (!user) {
+          navigate('/auth');
+        }
+      }, 1000); // 1 second delay
+
+      return () => clearTimeout(timer);
     }
   }, [user, loading, navigate]);
 
@@ -253,6 +348,46 @@ const Account = () => {
             </CardContent>
           </Card>
 
+          {/* Identified Bugs and Status */}
+          <Card className="bg-card/60 backdrop-blur-sm border-primary/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-primary/20">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  <Bug className="w-4 h-4 text-white" />
+                </div>
+                Identified Bugs and Status
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Transparency in our ongoing bug fixes and improvements. We're constantly working to improve your experience.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 rounded-lg bg-gradient-to-r from-blue-500/5 to-purple-500/5 border border-primary/10">
+                <div className="space-y-3">
+                  {bugs.map((bug) => (
+                    <div key={bug.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                      <div className="flex-1 pr-4">
+                        <h4 className="font-medium text-sm text-white">{bug.title}</h4>
+                        <p className="text-xs text-slate-400 mt-1">Identified: {bug.date}</p>
+                      </div>
+                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(bug.status)}`}>
+                        {getStatusIcon(bug.status)}
+                        {getStatusText(bug.status)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  onClick={() => setIsBugReportFormOpen(true)}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 text-white mt-4 w-full"
+                >
+                  <Bug className="w-4 h-4 mr-2" />
+                  Report Bug
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Subtle Support Button */}
           <div className="text-center mt-12">
             <Button
@@ -278,6 +413,14 @@ const Account = () => {
       <ContactForm 
         isOpen={isFeedbackFormOpen} 
         onClose={() => setIsFeedbackFormOpen(false)} 
+      />
+
+      {/* Bug Report Form Modal */}
+      <ContactForm 
+        isOpen={isBugReportFormOpen} 
+        onClose={() => setIsBugReportFormOpen(false)}
+        initialMessage="BUG: "
+        title="Report a Bug"
       />
     </div>
   );

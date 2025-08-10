@@ -216,27 +216,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     console.log('[AUTH] useEffect running. Initializing AuthContext.');
-    // Set up auth state listener FIRST
+    // Set up auth state listener with debouncing to prevent tab switch issues
+    let authStateTimer: NodeJS.Timeout;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          console.log('[AUTH] User logged in, will check subscription...');
-          setLoading(true);
-          // Use setTimeout to avoid blocking the auth flow
-          setTimeout(() => {
-            checkSubscription(session).finally(() => setLoading(false));
-          }, 100);
-        } else {
-          console.log('[AUTH] No user session, resetting subscription state');
-          setSubscribed(false);
-          setFreeExportsUsed(0);
-          setSubscriptionTier(null);
-          setSubscriptionEnd(null);
-          setLoading(false);
+        
+        // Clear any pending auth state updates
+        if (authStateTimer) {
+          clearTimeout(authStateTimer);
         }
+        
+        // Debounce auth state changes to prevent issues during tab switching
+        authStateTimer = setTimeout(() => {
+          setSession(session);
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            console.log('[AUTH] User logged in, will check subscription...');
+            setLoading(true);
+            // Use setTimeout to avoid blocking the auth flow
+            setTimeout(() => {
+              checkSubscription(session).finally(() => setLoading(false));
+            }, 100);
+          } else {
+            console.log('[AUTH] No user session, resetting subscription state');
+            setSubscribed(false);
+            setFreeExportsUsed(0);
+            setSubscriptionTier(null);
+            setSubscriptionEnd(null);
+            setLoading(false);
+          }
+        }, 300); // 300ms debounce
       }
     );
 
@@ -259,7 +269,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (authStateTimer) {
+        clearTimeout(authStateTimer);
+      }
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Separate effect to check subscription when session becomes available

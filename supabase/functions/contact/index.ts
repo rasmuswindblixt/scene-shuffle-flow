@@ -43,13 +43,17 @@ serve(async (req) => {
       </p>
     `
 
+    // Determine if this is a bug report
+    const isBugReport = message.trim().startsWith('BUG:')
+    const subjectPrefix = isBugReport ? '[BUG REPORT] ' : ''
+    
     // Send email using Resend
-    console.log('Sending contact form email:', { name, email })
+    console.log('Sending contact form email:', { name, email, isBugReport })
     
     const emailResponse = await resend.emails.send({
       from: 'ClipMixPRO <onboarding@resend.dev>',
       to: ['clipmixpro@gmail.com'],
-      subject: `New Contact Form Submission from ${name}`,
+      subject: `${subjectPrefix}New Contact Form Submission from ${name}`,
       html: emailHtml,
       replyTo: email,
     })
