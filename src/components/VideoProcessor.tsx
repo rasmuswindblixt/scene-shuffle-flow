@@ -800,15 +800,15 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
         {/* Analysis Step */}
         {currentStep === 'analyze' && (
           <div className="space-y-6">
-            {/* Warning Message - Always visible during analysis */}
+            {/* Flirty Message - Always visible during analysis */}
             {isAnalyzing && (
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-4">
-                <div className="flex items-center space-x-3 text-yellow-800 dark:text-yellow-200">
-                  <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">!</div>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-600 rounded-lg p-4">
+                <div className="flex items-center space-x-3 text-blue-800 dark:text-blue-200">
+                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">😉</div>
                   <div>
-                    <p className="font-semibold text-base">Important: Please don't leave this page!</p>
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                      Leaving this window may interrupt the analysis process. We're working on a fix for this.
+                    <p className="font-semibold text-base">It's safe to leave the tab while processing, but don't close it 😉</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      Feel free to browse other tabs - your video will keep processing in the background!
                     </p>
                   </div>
                 </div>
