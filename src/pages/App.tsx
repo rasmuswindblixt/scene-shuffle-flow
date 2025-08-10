@@ -66,7 +66,7 @@ const VideoApp = () => {
       // Clean up URL
       window.history.replaceState({}, '', '/app');
     }
-  }, [searchParams, toast, checkSubscription]);
+  }, [searchParams, toast]);
 
   const handleVideoUpload = (files: File[]) => {
     setUploadedVideos(files);

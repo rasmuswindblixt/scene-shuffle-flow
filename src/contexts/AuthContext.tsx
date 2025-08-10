@@ -99,7 +99,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const checkSubscription = async (sessionParam?: Session | null, retryCount = 0) => {
-    console.log('[AUTH] checkSubscription called, retry count:', retryCount);
+    console.log('[AUTH] checkSubscription called, retry count:', retryCount, 'initialized:', isInitialized);
+    
+    // Skip if user is already fully initialized (prevents tab switch calls)
+    if (isInitialized && retryCount === 0) {
+      console.log('[AUTH] User already initialized, skipping subscription check');
+      return;
+    }
     
     // Skip if any test user is active
     if (isDev && typeof window !== 'undefined' && 
