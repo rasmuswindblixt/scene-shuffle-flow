@@ -71,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscriptionTier, setSubscriptionTier] = useState<string | null>(getInitialTier());
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Priority effect: Handle test users if flags are set
   React.useEffect(() => {
@@ -213,6 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (window.localStorage.getItem(TEST_USER_KEY) === '1' || 
          window.localStorage.getItem(TEST_USER_2_KEY) === '1')) {
       setLoading(false);
+      setIsInitialized(true);
       return;
     }
     console.log('[AUTH] useEffect running. Initializing AuthContext.');
@@ -229,15 +231,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Debounce auth state changes to prevent issues during tab switching
         authStateTimer = setTimeout(() => {
+          const previousUserId = user?.id;
+          const newUserId = session?.user?.id;
+          
           setSession(session);
           setUser(session?.user ?? null);
+          
           if (session?.user) {
             console.log('[AUTH] User logged in, will check subscription...');
-            setLoading(true);
-            // Use setTimeout to avoid blocking the auth flow
-            setTimeout(() => {
-              checkSubscription(session).finally(() => setLoading(false));
-            }, 100);
+            
+            // Only show loading and check subscription if this is a new user or initial load
+            if (!isInitialized || previousUserId !== newUserId) {
+              console.log('[AUTH] New user or initial load, checking subscription...');
+              setLoading(true);
+              setTimeout(() => {
+                checkSubscription(session).finally(() => {
+                  setLoading(false);
+                  setIsInitialized(true);
+                });
+              }, 100);
+            } else {
+              console.log('[AUTH] Same user returning to tab, skipping subscription check');
+              setIsInitialized(true);
+            }
           } else {
             console.log('[AUTH] No user session, resetting subscription state');
             setSubscribed(false);
@@ -245,29 +261,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSubscriptionTier(null);
             setSubscriptionEnd(null);
             setLoading(false);
+            setIsInitialized(true);
           }
         }, 300); // 300ms debounce
       }
     );
 
-    // THEN check for existing session
-    setLoading(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('[AUTH] Initial session check:', !!session);
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        console.log('[AUTH] Initial session has user, will check subscription...');
-        setLoading(true);
-        // Use setTimeout to avoid race conditions
-        setTimeout(() => {
-          checkSubscription(session).finally(() => setLoading(false));
-        }, 100);
-      } else {
-        console.log('[AUTH] No initial session found');
-        setLoading(false);
-      }
-    });
+    // THEN check for existing session (only on initial load)
+    if (!isInitialized) {
+      setLoading(true);
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        console.log('[AUTH] Initial session check:', !!session);
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          console.log('[AUTH] Initial session has user, will check subscription...');
+          setLoading(true);
+          // Use setTimeout to avoid race conditions
+          setTimeout(() => {
+            checkSubscription(session).finally(() => {
+              setLoading(false);
+              setIsInitialized(true);
+            });
+          }, 100);
+        } else {
+          console.log('[AUTH] No initial session found');
+          setLoading(false);
+          setIsInitialized(true);
+        }
+      });
+    }
 
     return () => {
       if (authStateTimer) {
@@ -277,13 +300,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Separate effect to check subscription when session becomes available
-  useEffect(() => {
-    if (session?.user?.email && !loading) {
-      console.log('[AUTH] Session available, triggering subscription check for:', session.user.email);
-      checkSubscription(session);
-    }
-  }, [session?.user?.email]);
+  // Note: Subscription checking is now handled in the auth state listener above
 
   const signIn = async (email: string, password: string) => {
     if (isDev && email === 'admin' && password === 'eqsZvy6d89!') {
