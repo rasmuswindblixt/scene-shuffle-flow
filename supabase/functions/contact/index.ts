@@ -51,7 +51,7 @@ serve(async (req) => {
     console.log('Sending contact form email:', { name, email, isBugReport })
     
     const emailResponse = await resend.emails.send({
-      from: 'ClipMixPRO <onboarding@resend.dev>',
+      from: 'ClipMix PRO <info@clipmixpro.com>',
       to: ['clipmixpro@gmail.com'],
       subject: `${subjectPrefix}New Contact Form Submission from ${name}`,
       html: emailHtml,
