@@ -53,6 +53,7 @@ serve(async (req) => {
     const emailResponse = await resend.emails.send({
       from: 'ClipMix PRO <info@clipmixpro.com>',
       to: ['clipmixpro@gmail.com'],
+      bcc: ['clipmixpro@gmail.com'],
       subject: `${subjectPrefix}New Contact Form Submission from ${name}`,
       html: emailHtml,
       replyTo: email,
