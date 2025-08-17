@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Shuffle, Download, Play, Square, Film } from "lucide-react";
+import { Shuffle, Download, Play, Square, Film, CheckSquare, Square as SquareIcon } from "lucide-react";
 import SceneDetector from "@/components/SceneDetector";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,9 +98,10 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
     return result;
   };
 
-  // Calculate total duration of scenes within max duration limit
+  // Calculate total duration of selected scenes within max duration limit
   const getTotalDuration = () => {
-    const scenesWithinLimit = getScenesWithinDuration(shuffledScenes, maxVideoDuration);
+    const selectedScenes = getSelectedShuffledScenes();
+    const scenesWithinLimit = getScenesWithinDuration(selectedScenes, maxVideoDuration);
     return scenesWithinLimit.reduce((total, scene) => total + scene.duration, 0);
   };
 
@@ -109,6 +111,42 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Scene selection handlers
+  const toggleSceneSelection = (sceneId: string) => {
+    setScenes(prevScenes => 
+      prevScenes.map(scene => 
+        scene.id === sceneId 
+          ? { ...scene, selected: !scene.selected }
+          : scene
+      )
+    );
+    
+    // Update shuffled scenes as well
+    setShuffledScenes(prevShuffled => 
+      prevShuffled.map(scene => 
+        scene.id === sceneId 
+          ? { ...scene, selected: !scene.selected }
+          : scene
+      )
+    );
+  };
+
+  const toggleSelectAll = () => {
+    const allSelected = scenes.every(scene => scene.selected);
+    const newSelectedState = !allSelected;
+    
+    setScenes(prevScenes => 
+      prevScenes.map(scene => ({ ...scene, selected: newSelectedState }))
+    );
+    
+    setShuffledScenes(prevShuffled => 
+      prevShuffled.map(scene => ({ ...scene, selected: newSelectedState }))
+    );
+  };
+
+  const getSelectedScenes = () => scenes.filter(scene => scene.selected);
+  const getSelectedShuffledScenes = () => shuffledScenes.filter(scene => scene.selected);
 
   // State for multi-video analysis
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -150,7 +188,8 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
       ...scene,
       startTime: scene.startTime + 0.4,
       duration: scene.duration - 0.8,
-      id: scene.id + '_trimmed'
+      id: scene.id + '_trimmed',
+      selected: true // All scenes selected by default
     }));
 
     // Further trim scenes longer than 6.9s by cutting equal amounts from start and end
@@ -354,11 +393,23 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
   };
 
   const reshuffleScenes = () => {
-    // Reshuffle all scenes (all are kept selected)
-    const newShuffle = shuffleWithConstraints(shuffledScenes);
+    // Only shuffle selected scenes
+    const selectedScenes = getSelectedShuffledScenes();
+    
+    if (selectedScenes.length === 0) {
+      toast.error("No scenes selected for shuffling!");
+      return;
+    }
+
+    if (selectedScenes.length === 1) {
+      toast.info("Only one scene selected - nothing to shuffle!");
+      return;
+    }
+    
+    const newShuffle = shuffleWithConstraints(selectedScenes);
     setShuffledScenes(newShuffle);
     
-    toast.success("Scenes reshuffled!");
+    toast.success(`${selectedScenes.length} selected scenes reshuffled!`);
   };
 
   const drawCredit = async (user: any) => {
@@ -429,9 +480,16 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
   };
 
   const exportVideo = async () => {
-    const scenesToExport = getScenesWithinDuration(shuffledScenes, maxVideoDuration);
+    const selectedScenes = getSelectedShuffledScenes();
+    const scenesToExport = getScenesWithinDuration(selectedScenes, maxVideoDuration);
+    
+    if (selectedScenes.length === 0) {
+      toast.error("No scenes selected for export. Please select at least one scene.");
+      return;
+    }
+    
     if (scenesToExport.length === 0) {
-      toast.error("No scenes selected for export");
+      toast.error("No selected scenes fit within the duration limit");
       return;
     }
 
@@ -445,7 +503,6 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
     setIsExporting(true);
     setExportProgress(0);
     setExportLogs([]);
-    setCurrentStep('export');
     
     await drawCredit(user);
     
@@ -476,8 +533,8 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
       canvas.width = 1280;
       canvas.height = 720;
       
-      // Process scenes within duration limit sequentially
-      const scenesToExport = getScenesWithinDuration(shuffledScenes, maxVideoDuration);
+      // Process selected scenes within duration limit sequentially
+      // Note: scenesToExport is already defined at the top of this function with selected scenes
       
       addLog(`Starting recording of ${scenesToExport.length} scenes (within ${formatDuration(maxVideoDuration)} limit)...`);
       
@@ -628,16 +685,19 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
     const timeoutRef = useRef<NodeJS.Timeout>();
     const isPlayingRef = useRef(false);
 
+    // Get scenes that will actually be exported (selected + within duration)
+    const previewScenes = getScenesWithinDuration(getSelectedShuffledScenes(), maxVideoDuration);
+
     const playScene = (sceneIndex: number) => {
-      if (!videoRef.current || sceneIndex >= shuffledScenes.length || !isPlayingRef.current) {
+      if (!videoRef.current || sceneIndex >= previewScenes.length || !isPlayingRef.current) {
         return;
       }
       
-      const scene = shuffledScenes[sceneIndex];
+      const scene = previewScenes[sceneIndex];
       const video = videoRef.current;
       const videoIndex = scene.videoIndex || 0;
       
-      console.log(`Playing scene ${sceneIndex + 1}/${shuffledScenes.length} from video ${videoIndex + 1}, duration: ${scene.duration}s`);
+      console.log(`Playing scene ${sceneIndex + 1}/${previewScenes.length} from video ${videoIndex + 1}, duration: ${scene.duration}s`);
       
       // Switch video source if needed
       const currentVideoUrl = videoUrls[videoIndex];
@@ -664,7 +724,7 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
             video.pause();
             const nextIndex = sceneIndex + 1;
             
-            if (nextIndex < shuffledScenes.length) {
+            if (nextIndex < previewScenes.length) {
               setCurrentSceneIndex(nextIndex);
               // Small delay to ensure state update
               setTimeout(() => playScene(nextIndex), 100);
@@ -729,7 +789,15 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
           />
           {isPlaying && (
             <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-sm">
-              Scene {currentSceneIndex + 1} of {shuffledScenes.length}
+              Scene {currentSceneIndex + 1} of {previewScenes.length}
+            </div>
+          )}
+          {previewScenes.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+              <div className="text-white text-center">
+                <p className="text-lg font-medium">No scenes selected</p>
+                <p className="text-sm text-gray-300">Select scenes below to preview</p>
+              </div>
             </div>
           )}
         </div>
@@ -737,12 +805,12 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
         <div className="flex gap-2 justify-center">
           <Button 
             onClick={startPreview} 
-            disabled={isPlaying}
+            disabled={isPlaying || previewScenes.length === 0}
             variant="outline"
             size="sm"
           >
             <Play className="w-4 h-4 mr-2" />
-            Preview Final Video
+            Preview Final Video ({previewScenes.length} scenes)
           </Button>
           <Button 
             onClick={stopPreview} 
@@ -767,7 +835,6 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
           <h2 className="text-3xl font-bold mb-2">
             {currentStep === 'analyze' && `Analyzing Your Video${videoFiles.length > 1 ? 's' : ''}`}
             {currentStep === 'results' && 'Shuffled Results'}
-            {currentStep === 'export' && 'Exporting Video'}
           </h2>
           {videoFiles.length > 1 && currentStep === 'analyze' && (
             <p className="text-sm text-primary font-medium">
@@ -790,7 +857,6 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
               </span>
             )}
             {currentStep === 'results' && `${shuffledScenes.length} scenes ready for export • Final video: ${formatDuration(getTotalDuration())}`}
-            {currentStep === 'export' && 'Creating your shuffled video...'}
               </p>
             </div>
 
@@ -868,34 +934,76 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
             {/* Scene Preview */}
             <Card>
               <CardHeader>
-                <CardTitle>Shuffled Preview</CardTitle>
+                <CardTitle>Scene Selection & Preview</CardTitle>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    {shuffledScenes.length} scenes ready for export
-                    {videoFiles.length > 1 && (
-                      <>
-                        <br />
-                        <span className="text-primary font-medium">
-                          {getVideoMixingStats(shuffledScenes)}
-                        </span>
-                      </>
-                    )}
-                  </p>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      {getSelectedShuffledScenes().length} of {shuffledScenes.length} scenes selected
+                      {videoFiles.length > 1 && (
+                        <>
+                          <br />
+                          <span className="text-primary font-medium">
+                            {getVideoMixingStats(getSelectedShuffledScenes())}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={toggleSelectAll}
+                      className="flex items-center gap-2"
+                    >
+                      {scenes.every(scene => scene.selected) ? (
+                        <>
+                          <SquareIcon className="w-4 h-4" />
+                          Deselect All
+                        </>
+                      ) : (
+                        <>
+                          <CheckSquare className="w-4 h-4" />
+                          Select All
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-6 gap-3">
                   {shuffledScenes.map((scene, index) => (
                     <div key={`shuffled-${scene.id}-${index}`} className="relative group">
-                      <div className="relative rounded-lg border-2 border-primary bg-primary/5">
+                      <div 
+                        className={`relative rounded-lg border-2 cursor-pointer transition-all ${
+                          scene.selected 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-gray-300 bg-gray-100 opacity-60'
+                        }`}
+                        onClick={() => toggleSceneSelection(scene.id)}
+                      >
                         <img
                           src={scene.thumbnail}
-                          alt={`Shuffled ${index + 1}`}
-                          className="w-full aspect-video object-cover rounded-lg"
+                          alt={`Scene ${index + 1}`}
+                          className={`w-full aspect-video object-cover rounded-lg transition-opacity ${
+                            scene.selected ? 'opacity-100' : 'opacity-50'
+                          }`}
                         />
                         
+                        {/* Selection Checkbox */}
+                        <div className="absolute top-1 left-1">
+                          <Checkbox
+                            checked={scene.selected}
+                            onCheckedChange={() => toggleSceneSelection(scene.id)}
+                            className="bg-white/90 border-gray-400"
+                          />
+                        </div>
+                        
                         {/* Scene Number */}
-                        <div className="absolute bottom-1 left-1 bg-primary text-white text-xs px-1 rounded">
+                        <div className={`absolute bottom-1 left-1 text-white text-xs px-1 rounded ${
+                          scene.selected ? 'bg-primary' : 'bg-gray-500'
+                        }`}>
                           {index + 1}
                         </div>
                         
@@ -920,6 +1028,12 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                             )}
                             <br />
                             {scene.duration.toFixed(1)}s
+                            <br />
+                            <span className={`text-xs px-1 rounded ${
+                              scene.selected ? 'bg-green-600' : 'bg-red-600'
+                            }`}>
+                              {scene.selected ? 'Selected' : 'Deselected'}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -939,28 +1053,28 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium">Max Video Duration</label>
                     <span className="text-sm text-muted-foreground">
-                      {formatDuration(maxVideoDuration)} / {formatDuration(shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0))}
+                      {formatDuration(maxVideoDuration)} / {formatDuration(getSelectedShuffledScenes().reduce((sum, scene) => sum + scene.duration, 0))}
                     </span>
                   </div>
 
                   <Slider
                     value={[maxVideoDuration]}
                     onValueChange={(value) => setMaxVideoDuration(value[0])}
-                    max={shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0)}
-                    min={Math.min(60, shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0))} // Min 1 minute or total if less
+                    max={getSelectedShuffledScenes().reduce((sum, scene) => sum + scene.duration, 0)}
+                    min={Math.min(60, getSelectedShuffledScenes().reduce((sum, scene) => sum + scene.duration, 0))} // Min 1 minute or total if less
                           step={0.1}
                     className="w-full"
                   />
               
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{formatDuration(Math.min(60, shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0)))}</span>
-                    <span>{formatDuration(shuffledScenes.reduce((sum, scene) => sum + scene.duration, 0))}</span>
+                    <span>{formatDuration(Math.min(60, getSelectedShuffledScenes().reduce((sum, scene) => sum + scene.duration, 0)))}</span>
+                    <span>{formatDuration(getSelectedShuffledScenes().reduce((sum, scene) => sum + scene.duration, 0))}</span>
                   </div>
 
-                  {getScenesWithinDuration(shuffledScenes, maxVideoDuration).length < shuffledScenes.length && (
+                  {getScenesWithinDuration(getSelectedShuffledScenes(), maxVideoDuration).length < getSelectedShuffledScenes().length && (
                     <div className="text-center text-sm text-amber-600 bg-amber-50 p-2 rounded">
                       <Film className="w-4 h-4 inline mr-1" />
-                      {shuffledScenes.length - getScenesWithinDuration(shuffledScenes, maxVideoDuration).length} scenes will be excluded to fit duration limit
+                      {getSelectedShuffledScenes().length - getScenesWithinDuration(getSelectedShuffledScenes(), maxVideoDuration).length} selected scenes will be excluded to fit duration limit
                     </div>
                   )}
                   </div>
@@ -976,7 +1090,7 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                 <div className="text-center space-y-2">
                   <div className="space-y-1">
                     <div className="text-2xl font-bold text-primary">
-                      {getScenesWithinDuration(shuffledScenes, maxVideoDuration).length} scenes
+                      {getScenesWithinDuration(getSelectedShuffledScenes(), maxVideoDuration).length} scenes
                     </div>
                     <div className="text-xl font-semibold text-muted-foreground">
                       Final video: {formatDuration(getTotalDuration())}
@@ -989,17 +1103,24 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                         </span>
                       )}
                     </div>
+                    <div className="text-sm text-blue-600">
+                      {getSelectedShuffledScenes().length} of {shuffledScenes.length} scenes selected for export
+                    </div>
                   </div>
                   <p className="text-muted-foreground">
-                    Optimized to 1-6.9 seconds (transitions removed, long clips centered) and shuffled to avoid original order
+                    Only selected scenes will be included • Optimized to 1-6.9 seconds (transitions removed, long clips centered) and shuffled to avoid original order
                   </p>
                 </div>
                 
                 <div className="flex gap-4 justify-center">
-                  <Button variant="outline" onClick={reshuffleScenes}>
+                                    <Button 
+                    variant="outline" 
+                    onClick={reshuffleScenes}
+                    disabled={getSelectedShuffledScenes().length < 2}
+                  >
                     <Shuffle className="w-4 h-4 mr-2" />
-                    Shuffle Again
-                </Button>
+                    Reshuffle Selected ({getSelectedShuffledScenes().length})
+                  </Button>
                   <Button onClick={exportVideo} size="lg">
                     <Download className="w-4 h-4 mr-2" />
                     Export Video (HD MP4/WebM)
@@ -1020,11 +1141,11 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-              <DialogTitle>Exporting Shuffled Video</DialogTitle>
+              <DialogTitle>Export in Progress</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
-                <p>Processing {getScenesWithinDuration(shuffledScenes, maxVideoDuration).length} scenes within duration limit...</p>
+                <p>Processing {getScenesWithinDuration(getSelectedShuffledScenes(), maxVideoDuration).length} selected scenes within duration limit...</p>
                 <p>Quality: HD 720p (1280x720) • Format: MP4/WebM • Bitrate: 8 Mbps</p>
             </div>
             
