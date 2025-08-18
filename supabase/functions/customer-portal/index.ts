@@ -21,14 +21,14 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+    const stripeKey = Deno.env.get("VERCEL_STRIPE_SECRET_KEY");
+    if (!stripeKey) throw new Error("VERCEL_STRIPE_SECRET_KEY is not set");
     logStep("Stripe key verified");
 
     // Initialize Supabase client with the service role key
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      Deno.env.get("VERCEL_SUPABASE_URL") ?? "",
+      Deno.env.get("VERCEL_SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
 

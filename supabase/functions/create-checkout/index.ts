@@ -21,17 +21,17 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    const stripeKey = Deno.env.get("VERCEL_STRIPE_SECRET_KEY");
     if (!stripeKey) {
-      logStep("ERROR: STRIPE_SECRET_KEY is not set");
-      throw new Error("STRIPE_SECRET_KEY is not set");
+      logStep("ERROR: VERCEL_STRIPE_SECRET_KEY is not set");
+      throw new Error("VERCEL_STRIPE_SECRET_KEY is not set");
     }
     logStep("Stripe key found", { keyPrefix: stripeKey.substring(0, 10) });
 
     // Create a Supabase client using the anon key
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      Deno.env.get("VERCEL_SUPABASE_URL") ?? "",
+      Deno.env.get("VERCEL_SUPABASE_ANON_KEY") ?? ""
     );
 
     const authHeader = req.headers.get("Authorization");

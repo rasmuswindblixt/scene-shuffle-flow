@@ -17,8 +17,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY");
-  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  const stripeSecret = Deno.env.get("VERCEL_STRIPE_SECRET_KEY");
+  const webhookSecret = Deno.env.get("VERCEL_STRIPE_WEBHOOK_SECRET");
   if (!stripeSecret || !webhookSecret) {
     return new Response("Missing Stripe secrets", { status: 500 });
   }
@@ -28,8 +28,8 @@ serve(async (req) => {
   });
 
   const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    Deno.env.get("VERCEL_SUPABASE_URL") ?? "",
+    Deno.env.get("VERCEL_SUPABASE_SERVICE_ROLE_KEY") ?? "",
     { auth: { persistSession: false } }
   );
 
