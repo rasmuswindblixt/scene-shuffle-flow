@@ -43,9 +43,9 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
     }
     
     // Check if we would exceed the limit
-    const availableSlots = 2 - uploadedFiles.length;
+    const availableSlots = 3 - uploadedFiles.length;
     if (acceptedFiles.length > availableSlots) {
-      toast.error(`Maximum 2 videos allowed. You have ${availableSlots} slot${availableSlots !== 1 ? 's' : ''} remaining, but tried to add ${acceptedFiles.length} files.`);
+      toast.error(`Maximum 3 videos allowed. You have ${availableSlots} slot${availableSlots !== 1 ? 's' : ''} remaining, but tried to add ${acceptedFiles.length} files.`);
       return;
     }
     
@@ -73,15 +73,15 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
         continue;
       }
 
-      // Check duration limit (40 minutes = 2400 seconds)
+      // Check duration limit (60 minutes = 3600 seconds)
       const video = document.createElement('video');
       video.src = URL.createObjectURL(file);
       
       try {
         await new Promise<void>((resolve, reject) => {
           video.onloadedmetadata = () => {
-            if (video.duration > 2400) {
-              toast.error(`${file.name} is too long (max 40 minutes)`);
+            if (video.duration > 3600) {
+              toast.error(`${file.name} is too long (max 60 minutes)`);
               URL.revokeObjectURL(video.src);
               reject(new Error('Video too long'));
             } else {
@@ -120,7 +120,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
       
              if (validFiles.length === 1) {
          if (newFiles.length === 1) {
-           toast.success(`${validFiles[0].name} uploaded! Add another video to mix them together.`);
+           toast.success(`${validFiles[0].name} uploaded! Add more videos to mix them together.`);
          } else {
            toast.success(`${validFiles[0].name} uploaded! Ready to analyze ${newFiles.length} videos.`);
          }
@@ -152,7 +152,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
       'video/*': ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv']
     },
     multiple: true,
-    maxFiles: 2,
+    maxFiles: 3,
     disabled: isUploading,
     noClick: false,
     noKeyboard: false
@@ -166,7 +166,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
         <div className="text-center">
           <h2 className="text-3xl font-bold mb-4">Upload Your Videos</h2>
           <p className="text-muted-foreground">
-            Upload 1-2 videos to mix and shuffle their scenes together (max 40 minutes each)
+            Upload 1-3 videos to mix and shuffle their scenes together (max 60 minutes each)
           </p>
         </div>
 
@@ -206,11 +206,11 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-primary">Drop your video{uploadedFiles.length === 0 ? 's' : ''} here</h3>
                   <p className="text-muted-foreground">
-                    Release to upload {uploadedFiles.length === 0 ? 'up to 2 videos' : 'your video file'}
+                    Release to upload {uploadedFiles.length === 0 ? 'up to 3 videos' : 'your video file'}
                   </p>
                   {uploadedFiles.length > 0 && (
                     <p className="text-sm text-primary mt-2">
-                      {uploadedFiles.length}/2 videos uploaded
+                      {uploadedFiles.length}/3 videos uploaded
                     </p>
                   )}
                 </div>
@@ -226,7 +226,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
                     Drag and drop your video here, or click to browse
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Supports: MP4, AVI, MOV, MKV, WebM • Max: 5GB, 40 minutes
+                    Supports: MP4, AVI, MOV, MKV, WebM • Max: 5GB, 60 minutes
                   </p>
                 </div>
                 <Button size="lg" variant="outline">
@@ -242,7 +242,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
         {uploadedFiles.length > 0 && (
           <Card>
             <CardContent className="p-6">
-              <h3 className="font-semibold mb-4">Uploaded Videos ({uploadedFiles.length}/2)</h3>
+              <h3 className="font-semibold mb-4">Uploaded Videos ({uploadedFiles.length}/3)</h3>
               <div className="space-y-3">
                 {uploadedFiles.map((file, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
@@ -270,9 +270,14 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
               </div>
               
               <div className="mt-6 space-y-4">
-                {uploadedFiles.length < 2 && (
+                {uploadedFiles.length < 3 && (
                   <p className="text-sm text-muted-foreground text-center">
-                    Add another video to mix them together for longer output
+                    {uploadedFiles.length === 1 
+                      ? "Add more videos to mix them together for longer output" 
+                      : uploadedFiles.length === 2 
+                        ? "Add one more video for maximum content variety"
+                        : "Add more videos to mix them together for longer output"
+                    }
                   </p>
                 )}
                 
@@ -297,10 +302,16 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
                   </Button>
                 </div>
                 
+                {uploadedFiles.length === 3 && (
+                  <p className="text-sm text-primary text-center font-medium">
+                    <Film className="w-4 h-4 inline mr-1" />
+                    Excellent! Three videos will be mixed together for maximum content variety
+                  </p>
+                )}
                 {uploadedFiles.length === 2 && (
                   <p className="text-sm text-primary text-center font-medium">
                     <Film className="w-4 h-4 inline mr-1" />
-                    Perfect! Two videos will be mixed together for maximum content variety
+                    Great! Two videos will be mixed together for enhanced variety
                   </p>
                 )}
               </div>

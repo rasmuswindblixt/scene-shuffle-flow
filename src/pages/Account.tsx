@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare, Bug, CheckCircle, Clock, AlertTriangle, Sparkles, MousePointer } from "lucide-react";
+import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare, Bug, CheckCircle, Clock, AlertTriangle, Sparkles, MousePointer, Upload } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -27,6 +27,14 @@ const Account = () => {
   const newFeatures = [
     {
       id: 1,
+      title: "Enhanced Video Upload Limits",
+      description: "Increased upload capacity to 3 videos (up from 2) with extended duration limit of 60 minutes per video (up from 40 minutes) for more content variety.",
+      date: "2025.08.18",
+      status: "new" as const,
+      icon: <Upload className="w-4 h-4" />
+    },
+    {
+      id: 2,
       title: "Scene Selection & Deselection",
       description: "Select and deselect individual clips before export. All scenes are selected by default, with easy toggle controls and visual indicators.",
       date: "2025.08.18",
@@ -58,14 +66,14 @@ const Account = () => {
     {
       id: 4,
       title: "Ability to upload more than 2 videos",
-      date: "2025.08.09",
-      status: "under_development" as const
+      date: "2025.08.18",
+      status: "fixed" as const
     },
     {
       id: 5,
       title: "Upload videos longer than 30 minutes",
-      date: "2025.08.08",
-      status: "under_development" as const
+      date: "2025.08.18",
+      status: "fixed" as const
     },
     {
       id: 6,

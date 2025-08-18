@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Shuffle, Download, Play, Square, Film, CheckSquare, Square as SquareIcon } from "lucide-react";
+import { Shuffle, Download, Play, Square, Film, CheckSquare, Square as SquareIcon, AlertCircle } from "lucide-react";
 import SceneDetector from "@/components/SceneDetector";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
@@ -868,12 +868,12 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
           <div className="space-y-6">
             {/* Flirty Message - Always visible during analysis */}
             {isAnalyzing && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-600 rounded-lg p-4">
-                <div className="flex items-center space-x-3 text-blue-800 dark:text-blue-200">
-                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">😉</div>
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-lg p-4 shadow-sm">
+                <div className="flex items-center space-x-3">
+                  <AlertCircle className="w-6 h-6 text-primary flex-shrink-0" />
                   <div>
-                    <p className="font-semibold text-base">It's safe to leave the tab while processing, but don't close it 😉</p>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    <p className="font-semibold text-base text-foreground">It's safe to leave the tab while processing, but don't close it 😉</p>
+                    <p className="text-sm text-muted-foreground mt-1">
                       Feel free to browse other tabs - your video will keep processing in the background!
                     </p>
                   </div>
