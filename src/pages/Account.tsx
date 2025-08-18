@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare, Bug, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare, Bug, CheckCircle, Clock, AlertTriangle, Sparkles, MousePointer } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -18,6 +18,18 @@ const Account = () => {
   const [isBugReportFormOpen, setIsBugReportFormOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
+
+  // New features data
+  const newFeatures = [
+    {
+      id: 1,
+      title: "Scene Selection & Deselection",
+      description: "Select and deselect individual clips before export. All scenes are selected by default, with easy toggle controls and visual indicators.",
+      date: "2025.01.15",
+      status: "new" as const,
+      icon: <MousePointer className="w-4 h-4" />
+    }
+  ];
 
   // Bug status data
   const bugs = [
@@ -67,6 +79,8 @@ const Account = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'new':
+        return <Sparkles className="w-4 h-4 text-purple-500" />;
       case 'fixed':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'investigating':
@@ -80,6 +94,8 @@ const Account = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
+      case 'new':
+        return 'New';
       case 'fixed':
         return 'Fixed';
       case 'investigating':
@@ -93,6 +109,8 @@ const Account = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'new':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'fixed':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'investigating':
@@ -344,6 +362,43 @@ const Account = () => {
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Share Feedback
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* New or Updated Features */}
+          <Card className="bg-card/60 backdrop-blur-sm border-primary/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-primary/20">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                New or Updated Features
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Latest features and improvements we've added to enhance your video editing experience.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/5 to-pink-500/5 border border-primary/10">
+                <div className="space-y-3">
+                  {newFeatures.map((feature) => (
+                    <div key={feature.id} className="flex items-start justify-between p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                      <div className="flex-1 pr-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          {feature.icon}
+                          <h4 className="font-medium text-sm text-white">{feature.title}</h4>
+                        </div>
+                        <p className="text-xs text-slate-300 mb-2">{feature.description}</p>
+                        <p className="text-xs text-slate-400">Released: {feature.date}</p>
+                      </div>
+                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(feature.status)}`}>
+                        {getStatusIcon(feature.status)}
+                        {getStatusText(feature.status)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
