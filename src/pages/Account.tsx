@@ -18,6 +18,10 @@ const Account = () => {
   const [isBugReportFormOpen, setIsBugReportFormOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
+  const [showAllBugs, setShowAllBugs] = useState(false);
+  const [expandedFeatures, setExpandedFeatures] = useState<Set<number>>(new Set());
+  const [expandedBugs, setExpandedBugs] = useState<Set<number>>(new Set());
 
   // New features data
   const newFeatures = [
@@ -25,7 +29,7 @@ const Account = () => {
       id: 1,
       title: "Scene Selection & Deselection",
       description: "Select and deselect individual clips before export. All scenes are selected by default, with easy toggle controls and visual indicators.",
-      date: "2025.01.15",
+      date: "2025.08.18",
       status: "new" as const,
       icon: <MousePointer className="w-4 h-4" />
     }
@@ -120,6 +124,60 @@ const Account = () => {
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  // Helper functions for showing limited items
+  const getDisplayedFeatures = () => {
+    return showAllFeatures ? newFeatures : newFeatures.slice(0, 5);
+  };
+
+  const getSortedBugs = () => {
+    // Sort by status priority, then by date within each status
+    const statusPriority = {
+      'under_development': 1,
+      'investigating': 2,
+      'fixed': 3
+    };
+
+    return [...bugs].sort((a, b) => {
+      // First sort by status priority
+      const statusDiff = statusPriority[a.status] - statusPriority[b.status];
+      if (statusDiff !== 0) return statusDiff;
+      
+      // Then sort by date (newest first within same status)
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  };
+
+  const getDisplayedBugs = () => {
+    const sortedBugs = getSortedBugs();
+    return showAllBugs ? sortedBugs : sortedBugs.slice(0, 5);
+  };
+
+  // Helper functions for read more/less
+  const toggleFeatureExpanded = (id: number) => {
+    const newExpanded = new Set(expandedFeatures);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedFeatures(newExpanded);
+  };
+
+  const toggleBugExpanded = (id: number) => {
+    const newExpanded = new Set(expandedBugs);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedBugs(newExpanded);
+  };
+
+  const truncateText = (text: string, maxLength: number = 80) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
   };
 
   const handleRefreshSubscription = async () => {
@@ -381,24 +439,60 @@ const Account = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/5 to-pink-500/5 border border-primary/10">
-                <div className="space-y-3">
-                  {newFeatures.map((feature) => (
-                    <div key={feature.id} className="flex items-start justify-between p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                <div className="space-y-2">
+                  {getDisplayedFeatures().map((feature) => (
+                    <div key={feature.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
                       <div className="flex-1 pr-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-1">
                           {feature.icon}
                           <h4 className="font-medium text-sm text-white">{feature.title}</h4>
+                          <span className="text-xs text-slate-400">• {feature.date}</span>
                         </div>
-                        <p className="text-xs text-slate-300 mb-2">{feature.description}</p>
-                        <p className="text-xs text-slate-400">Released: {feature.date}</p>
+                        <div className="text-xs text-slate-300">
+                          {expandedFeatures.has(feature.id) ? (
+                            <>
+                              {feature.description}
+                              <button 
+                                onClick={() => toggleFeatureExpanded(feature.id)}
+                                className="ml-2 text-purple-400 hover:text-purple-300 underline"
+                              >
+                                Read Less
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              {truncateText(feature.description)}
+                              {feature.description.length > 80 && (
+                                <button 
+                                  onClick={() => toggleFeatureExpanded(feature.id)}
+                                  className="ml-2 text-purple-400 hover:text-purple-300 underline"
+                                >
+                                  Read More
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(feature.status)}`}>
+                      <div className={`flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(feature.status)}`}>
                         {getStatusIcon(feature.status)}
                         {getStatusText(feature.status)}
                       </div>
                     </div>
                   ))}
                 </div>
+                {newFeatures.length > 5 && (
+                  <div className="mt-4 text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAllFeatures(!showAllFeatures)}
+                      className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                    >
+                      {showAllFeatures ? 'Show Less' : `Show More (${newFeatures.length - 5} more)`}
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -418,20 +512,34 @@ const Account = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="p-4 rounded-lg bg-gradient-to-r from-blue-500/5 to-purple-500/5 border border-primary/10">
-                <div className="space-y-3">
-                  {bugs.map((bug) => (
+                <div className="space-y-2">
+                  {getDisplayedBugs().map((bug) => (
                     <div key={bug.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
                       <div className="flex-1 pr-4">
-                        <h4 className="font-medium text-sm text-white">{bug.title}</h4>
-                        <p className="text-xs text-slate-400 mt-1">Identified: {bug.date}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium text-sm text-white">{bug.title}</h4>
+                          <span className="text-xs text-slate-400">• {bug.date}</span>
+                        </div>
                       </div>
-                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(bug.status)}`}>
+                      <div className={`flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(bug.status)}`}>
                         {getStatusIcon(bug.status)}
                         {getStatusText(bug.status)}
                       </div>
                     </div>
                   ))}
                 </div>
+                {bugs.length > 5 && (
+                  <div className="mt-4 text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAllBugs(!showAllBugs)}
+                      className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                    >
+                      {showAllBugs ? 'Show Less' : `Show More (${bugs.length - 5} more)`}
+                    </Button>
+                  </div>
+                )}
                 <Button
                   onClick={() => setIsBugReportFormOpen(true)}
                   className="bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 text-white mt-4 w-full"
