@@ -32,8 +32,8 @@ serve(async (req) => {
 
     // Create Supabase client with service role (bypasses RLS)
     const supabaseAdmin = createClient(
-      Deno.env.get("VERCEL_SUPABASE_URL") ?? "",
-      Deno.env.get("VERCEL_SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
 
