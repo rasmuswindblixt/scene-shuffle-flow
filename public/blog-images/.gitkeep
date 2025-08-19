@@ -1,0 +1,22 @@
+# Blog Images Directory
+
+This directory contains featured images for blog posts.
+
+## File Naming Convention
+- Images should be named with the blog post slug: `{slug}.{extension}`
+- Example: `what-is-youtube-automation.jpg`
+
+## Supported Formats
+- PNG
+- JPG/JPEG
+- WebP
+
+## Recommended Dimensions
+- Width: 1200px
+- Height: 675px  
+- Aspect Ratio: 16:9 (matches aspect-video class used in blog components)
+
+## Alternative Sizes
+- Small: 800x450px (16:9)
+- Medium: 1200x675px (16:9) - Recommended
+- Large: 1600x900px (16:9)

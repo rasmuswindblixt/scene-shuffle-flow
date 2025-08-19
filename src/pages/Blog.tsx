@@ -1,54 +1,65 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { CalendarDays, Clock, ArrowRight } from "lucide-react";
 
-// Sample blog posts - in production, these would come from markdown files or CMS
-const blogPosts = [
-  {
-    slug: "ai-video-editing-future",
-    title: "The Future of AI-Powered Video Editing: Revolutionizing Content Creation",
-    excerpt: "Discover how artificial intelligence is transforming video editing, making professional-quality content creation accessible to everyone.",
-    date: "2024-01-15",
-    readTime: "5 min read",
-    category: "AI Technology",
-    image: "/api/placeholder/400/250"
-  },
-  {
-    slug: "video-marketing-trends-2024",
-    title: "10 Video Marketing Trends That Will Dominate 2024",
-    excerpt: "Stay ahead of the curve with these essential video marketing strategies that successful brands are using to engage their audiences.",
-    date: "2024-01-12",
-    readTime: "7 min read",
-    category: "Marketing",
-    image: "/api/placeholder/400/250"
-  },
-  {
-    slug: "scene-detection-technology",
-    title: "How AI Scene Detection is Changing Video Production",
-    excerpt: "Learn about the cutting-edge technology behind automatic scene detection and how it's streamlining video editing workflows.",
-    date: "2024-01-10",
-    readTime: "4 min read",
-    category: "Technology",
-    image: "/api/placeholder/400/250"
-  }
-];
+interface BlogPost {
+  slug: string;
+  title: string;
+  excerpt: string;
+  date: string;
+  readTime: string;
+  category: string;
+  image: string;
+  content: string;
+}
 
 export default function Blog() {
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadBlogPosts = async () => {
+      try {
+        const response = await fetch('/blog-posts.json');
+        const posts = await response.json();
+        setBlogPosts(posts);
+      } catch (error) {
+        console.error('Failed to load blog posts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBlogPosts();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading blog posts...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4">
+      <header className="border-b border-border backdrop-blur-sm bg-background/80 sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">CM</span>
+            <Link to="/" className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center">
+                <span className="text-white font-bold text-lg">C</span>
               </div>
-              <span className="font-bold text-xl">ClipMix Pro</span>
+              <span className="text-xl font-bold">ClipMixPRO</span>
             </Link>
-            <nav className="hidden md:flex items-center space-x-6">
+            <nav className="hidden md:flex items-center space-x-8">
               <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
                 Home
               </Link>
@@ -56,7 +67,7 @@ export default function Blog() {
                 Blog
               </Link>
               <Link to="/app">
-                <Button size="sm">Try Free</Button>
+                <Button className="bg-gradient-primary hover:opacity-90">Start Shuffling</Button>
               </Link>
             </nav>
           </div>
@@ -64,14 +75,21 @@ export default function Blog() {
       </header>
 
       {/* Hero Section */}
-      <section className="py-16 bg-gradient-to-br from-background to-muted/20">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">
-            Video Editing Insights & Tips
+      <section className="py-20 lg:py-32 hero-glow">
+        <div className="container mx-auto px-6 text-center">
+          <h1 className="text-4xl md:text-6xl font-bold mb-6 gradient-text">
+            Video Editing <span className="gradient-text">Resources</span>
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Stay updated with the latest trends, tutorials, and insights in AI-powered video editing
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
+            Master video editing with our comprehensive guides, tutorials, and insights. Learn how to create viral content with AI-powered tools and proven strategies.
           </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/app">
+              <Button size="lg" className="bg-gradient-primary hover:opacity-90">
+                Start Shuffling
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -130,8 +148,8 @@ export default function Blog() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/app">
-              <Button size="lg" className="w-full sm:w-auto">
-                Start Free Trial
+              <Button size="lg" className="w-full sm:w-auto bg-gradient-primary hover:opacity-90">
+                Start Shuffling
               </Button>
             </Link>
             <Link to="/#pricing">
