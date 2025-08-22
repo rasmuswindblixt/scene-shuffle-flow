@@ -1,9 +1,11 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useDropzone } from 'react-dropzone';
-import { Film, Upload, ArrowDown, Play } from 'lucide-react';
+import { Film, Upload, ArrowDown, Play, Youtube, Zap } from 'lucide-react';
+import YouTubeDownloader from './YouTubeDownloader';
 
 interface VideoUploadProps {
   onVideoUpload: (files: File[]) => void;
@@ -12,6 +14,7 @@ interface VideoUploadProps {
 const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [showYouTubeDownloader, setShowYouTubeDownloader] = useState(false);
 
   const handleFileSelect = (file: File) => {
     // Use the same multi-file handler for consistency
@@ -30,6 +33,17 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
       return;
     }
     onVideoUpload(uploadedFiles);
+  };
+
+  const handleYouTubeVideoDownloaded = (file: File) => {
+    // Check if we would exceed the limit
+    if (uploadedFiles.length >= 3) {
+      toast.error("Maximum 3 videos allowed. Remove a video before downloading from YouTube.");
+      return;
+    }
+    
+    // Add the downloaded video to uploaded files
+    handleMultipleFiles([file]);
   };
 
 
@@ -165,10 +179,37 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="text-center">
           <h2 className="text-3xl font-bold mb-4">Upload Your Videos</h2>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-4">
             Upload 1-3 videos to mix and shuffle their scenes together (max 60 minutes each)
           </p>
+          
+          {/* YouTube Downloader Feature - Temporarily Hidden */}
+          {/* 
+          Beta Feature Toggle - Hidden until proper server-side implementation
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowYouTubeDownloader(!showYouTubeDownloader)}
+              className="text-xs border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950/20"
+            >
+              <Youtube className="w-3 h-3 mr-1" />
+              {showYouTubeDownloader ? 'Hide' : 'Show'} YouTube Downloader
+              <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 text-xs">
+                Beta
+              </Badge>
+            </Button>
+          </div>
+          */}
         </div>
+
+        {/* YouTube Downloader Section - Hidden */}
+        {false && showYouTubeDownloader && (
+          <YouTubeDownloader 
+            onVideoDownloaded={handleYouTubeVideoDownloaded}
+            disabled={isUploading || uploadedFiles.length >= 3}
+          />
+        )}
 
         <Card
           {...getRootProps()}

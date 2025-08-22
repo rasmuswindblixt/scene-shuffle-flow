@@ -5,8 +5,9 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Shuffle, Download, Play, Square, Film, CheckSquare, Square as SquareIcon, AlertCircle } from "lucide-react";
+import { Shuffle, Download, Play, Square, Film, CheckSquare, Square as SquareIcon, AlertCircle, FileVideo } from "lucide-react";
 import SceneDetector from "@/components/SceneDetector";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +40,29 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
   const [exportLogs, setExportLogs] = useState<string[]>([]);
   const [originalVideoDuration, setOriginalVideoDuration] = useState<number>(0);
   const [maxVideoDuration, setMaxVideoDuration] = useState<number>(0);
+  const [exportFormat, setExportFormat] = useState<'mp4' | 'webm'>('mp4');
+
+  // Check supported formats on component mount
+  useEffect(() => {
+    const checkFormats = () => {
+      const formats = [
+        'video/mp4',
+        'video/mp4;codecs=h264',
+        'video/mp4;codecs=avc1.42E01E',
+        'video/webm',
+        'video/webm;codecs=vp8',
+        'video/webm;codecs=vp9'
+      ];
+      
+      console.log('🎥 Supported video formats:');
+      formats.forEach(format => {
+        const supported = MediaRecorder.isTypeSupported(format);
+        console.log(`  ${format}: ${supported ? '✅' : '❌'}`);
+      });
+    };
+    
+    checkFormats();
+  }, []);
 
   // Auto-start analysis when component mounts
   useEffect(() => {
@@ -538,26 +562,76 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
       
       addLog(`Starting recording of ${scenesToExport.length} scenes (within ${formatDuration(maxVideoDuration)} limit)...`);
       
-      // Set up MediaRecorder with MP4 and higher quality
+      // Set up MediaRecorder with user-selected format and high quality
       const stream = canvas.captureStream(60); // Increased to 60fps for smoother video
       let mediaRecorder: MediaRecorder;
       
-      // Try MP4 first, fallback to WebM if not supported
-      if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264')) {
-        mediaRecorder = new MediaRecorder(stream, { 
-          mimeType: 'video/mp4;codecs=h264',
-          videoBitsPerSecond: 8000000 // 8 Mbps for high quality
-        });
-      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-        mediaRecorder = new MediaRecorder(stream, { 
-          mimeType: 'video/webm;codecs=vp9',
-          videoBitsPerSecond: 8000000 // 8 Mbps for high quality
-        });
+      addLog(`Setting up video recording in ${exportFormat.toUpperCase()} format...`);
+      
+      if (exportFormat === 'mp4') {
+        // User selected MP4 format - try different MP4 options
+        if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264')) {
+          mediaRecorder = new MediaRecorder(stream, { 
+            mimeType: 'video/mp4;codecs=h264',
+            videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+          });
+          addLog('Using MP4 format with H.264 codec');
+        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+          mediaRecorder = new MediaRecorder(stream, { 
+            mimeType: 'video/mp4',
+            videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+          });
+          addLog('Using MP4 format with default codec');
+        } else {
+          addLog('⚠️ MP4 format not supported by this browser, using WebM instead');
+          toast.warning("MP4 not supported in this browser. Using WebM format instead.", {
+            duration: 4000,
+          });
+          if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+            mediaRecorder = new MediaRecorder(stream, { 
+              mimeType: 'video/webm;codecs=vp9',
+              videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+            });
+            addLog('Fallback: Using WebM format with VP9 codec');
+          } else {
+            mediaRecorder = new MediaRecorder(stream, { 
+              mimeType: 'video/webm;codecs=vp8',
+              videoBitsPerSecond: 5000000 // 5 Mbps fallback
+            });
+            addLog('Fallback: Using WebM format with VP8 codec');
+          }
+        }
       } else {
-        mediaRecorder = new MediaRecorder(stream, { 
-          mimeType: 'video/webm;codecs=vp8',
-          videoBitsPerSecond: 5000000 // 5 Mbps fallback
-        });
+        // User selected WebM format
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+          mediaRecorder = new MediaRecorder(stream, { 
+            mimeType: 'video/webm;codecs=vp9',
+            videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+          });
+          addLog('Using WebM format with VP9 codec');
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+          mediaRecorder = new MediaRecorder(stream, { 
+            mimeType: 'video/webm;codecs=vp8',
+            videoBitsPerSecond: 5000000 // 5 Mbps for VP8
+          });
+          addLog('Using WebM format with VP8 codec');
+        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+          mediaRecorder = new MediaRecorder(stream, { 
+            mimeType: 'video/webm',
+            videoBitsPerSecond: 5000000 // 5 Mbps default WebM
+          });
+          addLog('Using WebM format with default codec');
+        } else {
+          addLog('⚠️ WebM format not supported, falling back to MP4');
+          toast.warning("WebM not supported in this browser. Using MP4 format instead.", {
+            duration: 4000,
+          });
+          mediaRecorder = new MediaRecorder(stream, { 
+            mimeType: 'video/mp4;codecs=h264',
+            videoBitsPerSecond: 8000000 // 8 Mbps fallback
+          });
+          addLog('Fallback: Using MP4 format with H.264 codec');
+        }
       }
       
       const recordedChunks: Blob[] = [];
@@ -1072,7 +1146,7 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                   </div>
 
                   {getScenesWithinDuration(getSelectedShuffledScenes(), maxVideoDuration).length < getSelectedShuffledScenes().length && (
-                    <div className="text-center text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                    <div className="text-center text-sm text-muted-foreground bg-card border border-border p-2 rounded">
                       <Film className="w-4 h-4 inline mr-1" />
                       {getSelectedShuffledScenes().length - getScenesWithinDuration(getSelectedShuffledScenes(), maxVideoDuration).length} selected scenes will be excluded to fit duration limit
                     </div>
@@ -1087,6 +1161,23 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                 <CardTitle>Export Results</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Format Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <FileVideo className="w-4 h-4" />
+                    Video Format
+                  </label>
+                  <Select value={exportFormat} onValueChange={(value: 'mp4' | 'webm') => setExportFormat(value)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select video format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mp4">MP4</SelectItem>
+                      <SelectItem value="webm">WebM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="text-center space-y-2">
                   <div className="space-y-1">
                     <div className="text-2xl font-bold text-primary">
@@ -1103,13 +1194,7 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-blue-600">
-                      {getSelectedShuffledScenes().length} of {shuffledScenes.length} scenes selected for export
-                    </div>
                   </div>
-                  <p className="text-muted-foreground">
-                    Only selected scenes will be included • Optimized to 1-6.9 seconds (transitions removed, long clips centered) and shuffled to avoid original order
-                  </p>
                 </div>
                 
                 <div className="flex gap-4 justify-center">
@@ -1123,7 +1208,7 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
                   </Button>
                   <Button onClick={exportVideo} size="lg">
                     <Download className="w-4 h-4 mr-2" />
-                    Export Video (HD MP4/WebM)
+                    Export Video (HD {exportFormat.toUpperCase()})
                 </Button>
                 </div>
                 
