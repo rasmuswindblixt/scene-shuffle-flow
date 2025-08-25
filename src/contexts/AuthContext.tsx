@@ -183,19 +183,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // For seniorfinancetv@gmail.com, we know they have 3 exports used from database (trial expired)
-    if (currentSession.user.email === 'seniorfinancetv@gmail.com') {
-      console.log('[AUTH] Setting known state for seniorfinancetv@gmail.com - trial expired');
-      setSubscribed(false);
-      setExportCount(3);
-      setTrialStatus('expired');
-      setSubscriptionStatus('none');
-      setRemainingExports(0);
-      setSubscriptionTier(null);
-      setSubscriptionEnd(null);
-    } else {
-      // For other users, set trial defaults
-      console.log('[AUTH] Setting trial defaults for other users');
+    // Check database for actual user subscription status
+    try {
+      console.log('[AUTH] Checking database for user subscription status:', currentSession.user.email);
+      
+      const { data: subscriber, error } = await supabase
+        .from("subscribers")
+        .select("*")
+        .eq("email", currentSession.user.email)
+        .maybeSingle();
+
+      if (error) {
+        console.error('[AUTH] Error fetching subscriber:', error);
+      }
+
+      if (subscriber) {
+        console.log('[AUTH] Found subscriber data:', subscriber);
+        const usedExports = subscriber.free_exports_used || 0;
+        const isSubscribed = subscriber.subscribed || false;
+        
+        if (isSubscribed) {
+          // Premium user
+          console.log('[AUTH] User is premium subscriber');
+          setSubscribed(true);
+          setExportCount(-1); // Unlimited for premium
+          setTrialStatus('converted');
+          setSubscriptionStatus('active');
+          setRemainingExports(-1); // Unlimited
+          setSubscriptionTier('Premium');
+          setSubscriptionEnd(subscriber.subscription_end);
+        } else {
+          // Free trial user
+          console.log('[AUTH] User is on free trial');
+          setSubscribed(false);
+          setExportCount(usedExports);
+          setTrialStatus(usedExports >= 3 ? 'expired' : 'active');
+          setSubscriptionStatus('none');
+          setRemainingExports(Math.max(0, 3 - usedExports));
+          setSubscriptionTier(null);
+          setSubscriptionEnd(null);
+        }
+      } else {
+        // New user - set trial defaults
+        console.log('[AUTH] New user - setting trial defaults');
+        setSubscribed(false);
+        setExportCount(0);
+        setTrialStatus('active');
+        setSubscriptionStatus('none');
+        setRemainingExports(3);
+        setSubscriptionTier(null);
+        setSubscriptionEnd(null);
+      }
+    } catch (error) {
+      console.error('[AUTH] Error checking subscription status:', error);
+      // Fallback to trial defaults on error
+      console.log('[AUTH] Using fallback trial defaults due to error');
       setSubscribed(false);
       setExportCount(0);
       setTrialStatus('active');
