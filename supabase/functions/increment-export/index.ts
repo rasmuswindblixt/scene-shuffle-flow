@@ -57,15 +57,15 @@ serve(async (req) => {
 
     console.log('[INCREMENT-EXPORT] User validated:', user.email);
 
-    // Check/create subscriber record
-    let { data: subscriber, error: selectError } = await supabaseAdmin
-      .from("subscribers")
+    // Get user profile with trial information
+    let { data: profile, error: selectError } = await supabaseAdmin
+      .from("profiles")
       .select("*")
-      .eq("email", user.email)
+      .eq("id", user.id)
       .maybeSingle();
 
-    console.log('[INCREMENT-EXPORT] Subscriber query result:', {
-      found: !!subscriber,
+    console.log('[INCREMENT-EXPORT] Profile query result:', {
+      found: !!profile,
       error: selectError?.message
     });
 
@@ -77,78 +77,104 @@ serve(async (req) => {
       });
     }
 
-    // Create subscriber if doesn't exist
-    if (!subscriber) {
-      console.log('[INCREMENT-EXPORT] Creating new subscriber');
-      const { data: newSubscriber, error: insertError } = await supabaseAdmin
-        .from("subscribers")
+    // Create profile if doesn't exist (shouldn't happen with proper auth flow)
+    if (!profile) {
+      console.log('[INCREMENT-EXPORT] Creating new profile');
+      const { data: newProfile, error: insertError } = await supabaseAdmin
+        .from("profiles")
         .insert({
+          id: user.id,
           email: user.email,
-          user_id: user.id,
-          subscribed: false,
-          free_exports_used: 1,
+          export_count: 1,
+          trial_status: 'active',
+          trial_started_at: new Date().toISOString(),
+          subscription_status: 'none'
         })
         .select()
         .single();
 
       if (insertError) {
         console.log('[INCREMENT-EXPORT] Insert error:', insertError);
-        return new Response(JSON.stringify({ error: "Failed to create subscriber record" }), {
+        return new Response(JSON.stringify({ error: "Failed to create profile record" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 500,
         });
       }
 
-      console.log('[INCREMENT-EXPORT] New subscriber created');
+      console.log('[INCREMENT-EXPORT] New profile created');
       return new Response(JSON.stringify({
         success: true,
-        free_exports_used: 1,
-        subscribed: false
+        export_count: 1,
+        trial_status: 'active',
+        subscription_status: 'none',
+        remaining_exports: 2
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
-    // Check export limit
-    if (!subscriber.subscribed && subscriber.free_exports_used >= 1) {
-      console.log('[INCREMENT-EXPORT] Export limit reached');
+    // Check if user has active subscription
+    const hasActiveSubscription = profile.subscription_status === 'active';
+    
+    // Check trial export limit (3 exports for free trial)
+    const TRIAL_EXPORT_LIMIT = 3;
+    if (!hasActiveSubscription && profile.export_count >= TRIAL_EXPORT_LIMIT && profile.trial_status !== 'converted') {
+      console.log('[INCREMENT-EXPORT] Trial export limit reached');
+      
+      // Mark trial as expired
+      await supabaseAdmin
+        .from("profiles")
+        .update({ trial_status: 'expired' })
+        .eq("id", user.id);
+
       return new Response(JSON.stringify({
-        error: "Free export limit reached. Please subscribe to continue.",
-        free_exports_used: subscriber.free_exports_used,
-        subscribed: false
+        error: "Free trial limit reached. Please subscribe to continue.",
+        export_count: profile.export_count,
+        trial_status: 'expired',
+        subscription_status: profile.subscription_status,
+        remaining_exports: 0
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 403,
       });
     }
 
-    // Increment export count for non-subscribers
-    let newExportCount = subscriber.free_exports_used;
-    if (!subscriber.subscribed) {
-      console.log('[INCREMENT-EXPORT] Incrementing export count');
-      const { error: updateError } = await supabaseAdmin
-        .from("subscribers")
-        .update({
-          free_exports_used: subscriber.free_exports_used + 1,
-        })
-        .eq("email", user.email);
-
-      if (updateError) {
-        console.log('[INCREMENT-EXPORT] Update error:', updateError);
-        return new Response(JSON.stringify({ error: "Failed to update export count" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        });
-      }
-      newExportCount = subscriber.free_exports_used + 1;
+    // Increment export count (for both trial and paid users - for analytics)
+    const newExportCount = profile.export_count + 1;
+    let newTrialStatus = profile.trial_status;
+    
+    // Update trial status if this is the last free export
+    if (!hasActiveSubscription && newExportCount >= TRIAL_EXPORT_LIMIT) {
+      newTrialStatus = 'expired';
     }
+
+    console.log('[INCREMENT-EXPORT] Incrementing export count');
+    const { error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        export_count: newExportCount,
+        trial_status: newTrialStatus
+      })
+      .eq("id", user.id);
+
+    if (updateError) {
+      console.log('[INCREMENT-EXPORT] Update error:', updateError);
+      return new Response(JSON.stringify({ error: "Failed to update export count" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
+    }
+
+    const remainingExports = hasActiveSubscription ? -1 : Math.max(0, TRIAL_EXPORT_LIMIT - newExportCount);
 
     console.log('[INCREMENT-EXPORT] Success! Export count:', newExportCount);
     return new Response(JSON.stringify({
       success: true,
-      free_exports_used: newExportCount,
-      subscribed: subscriber.subscribed
+      export_count: newExportCount,
+      trial_status: newTrialStatus,
+      subscription_status: profile.subscription_status,
+      remaining_exports: remainingExports
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

@@ -51,27 +51,36 @@ serve(async (req) => {
     if (customers.data.length === 0) {
       logStep("No customer found, updating unsubscribed state");
 
-      // Hämta nuvarande free_exports_used från databasen
-      const { data: existingSubscriber } = await supabaseClient
-        .from("subscribers")
-        .select("free_exports_used")
-        .eq("email", user.email)
+      // Get current profile data
+      const { data: existingProfile } = await supabaseClient
+        .from("profiles")
+        .select("export_count, trial_status, trial_started_at")
+        .eq("id", user.id)
         .single();
 
-      const freeExportsUsed = existingSubscriber?.free_exports_used || 0;
+      const exportCount = existingProfile?.export_count || 0;
+      const trialStatus = existingProfile?.trial_status || 'active';
+      const trialStartedAt = existingProfile?.trial_started_at || new Date().toISOString();
 
-      await supabaseClient.from("subscribers").upsert({
+      // Update profile with no subscription status
+      await supabaseClient.from("profiles").upsert({
+        id: user.id,
         email: user.email,
-        user_id: user.id,
-        stripe_customer_id: null,
-        subscribed: false,
-        subscription_tier: null,
-        subscription_end: null,
-        free_exports_used: freeExportsUsed,
+        subscription_status: 'none',
+        export_count: exportCount,
+        trial_status: trialStatus,
+        trial_started_at: trialStartedAt,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'email' });
+      }, { onConflict: 'id' });
 
-      return new Response(JSON.stringify({ subscribed: false, free_exports_used: freeExportsUsed }), {
+      const remainingExports = Math.max(0, 3 - exportCount);
+      return new Response(JSON.stringify({ 
+        subscribed: false, 
+        export_count: exportCount,
+        trial_status: trialStatus,
+        subscription_status: 'none',
+        remaining_exports: remainingExports
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -80,14 +89,16 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    // Get current subscriber data first
-    const { data: currentSubscriber } = await supabaseClient
-      .from("subscribers")
+    // Get current profile data first
+    const { data: currentProfile } = await supabaseClient
+      .from("profiles")
       .select("*")
-      .eq("email", user.email)
+      .eq("id", user.id)
       .single();
 
-    const freeExportsUsed = currentSubscriber?.free_exports_used || 0;
+    const exportCount = currentProfile?.export_count || 0;
+    const trialStatus = currentProfile?.trial_status || 'active';
+    const trialStartedAt = currentProfile?.trial_started_at || new Date().toISOString();
     
     // Check for active AND recently cancelled subscriptions
     const subscriptions = await stripe.subscriptions.list({
@@ -97,9 +108,10 @@ serve(async (req) => {
     });
     
     let hasActiveSub = false;
-    let subscriptionTier = currentSubscriber?.subscription_tier || "Premium";
-    let subscriptionEnd: string | null = currentSubscriber?.subscription_end || null;
+    let subscriptionTier = "Premium"; // Default tier for active subscriptions
+    let subscriptionEnd: string | null = null;
     let shouldUpdateSubscription = false;
+    let newTrialStatus = trialStatus;
 
     // Check for active subscriptions first
     const activeSubscriptions = subscriptions.data.filter(sub => sub.status === "active");
@@ -108,6 +120,7 @@ serve(async (req) => {
       const subscription = activeSubscriptions[0];
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       subscriptionTier = "Premium";
+      newTrialStatus = 'converted'; // Mark trial as converted when subscription is active
       shouldUpdateSubscription = true;
       logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
     } else {
@@ -123,44 +136,62 @@ serve(async (req) => {
         const subscription = recentSubscriptions[0];
         subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
         subscriptionTier = "Premium";
+        newTrialStatus = 'converted'; // Keep as converted for cancelled but still valid subscriptions
         shouldUpdateSubscription = true;
         logStep("Cancelled subscription still valid", { subscriptionId: subscription.id, endDate: subscriptionEnd });
       } else {
-        // Check if subscription_end in database is still in the future
-        if (currentSubscriber?.subscription_end && new Date(currentSubscriber.subscription_end) > new Date()) {
-          // Keep existing subscription status until it expires
-          hasActiveSub = currentSubscriber.subscribed;
-          subscriptionTier = currentSubscriber.subscription_tier;
-          subscriptionEnd = currentSubscriber.subscription_end;
-          logStep("Using existing subscription data - not yet expired", { endDate: subscriptionEnd });
+        // Check if we still have a valid subscription period in profiles
+        if (currentProfile?.subscription_status === 'active') {
+          // Keep existing subscription status (could be from database cache)
+          hasActiveSub = true;
+          subscriptionTier = "Premium";
+          subscriptionEnd = null; // Will be updated if we find active subscription
+          newTrialStatus = 'converted';
+          logStep("Using existing active subscription from profile");
         } else {
-          // Subscription has truly expired
+          // No active subscription found
           hasActiveSub = false;
           subscriptionTier = null;
           subscriptionEnd = null;
+          // Don't change trial status if user had a subscription before
+          if (currentProfile?.subscription_status === 'none') {
+            newTrialStatus = exportCount >= 3 ? 'expired' : 'active';
+          }
           shouldUpdateSubscription = true;
-          logStep("Subscription expired - setting to inactive");
+          logStep("No active subscription - setting to inactive");
         }
       }
     }
 
-    await supabaseClient.from("subscribers").upsert({
+    // Update profiles table with subscription info
+    await supabaseClient.from("profiles").upsert({
+      id: user.id,
       email: user.email,
-      user_id: user.id,
-      stripe_customer_id: customerId,
+      subscription_status: hasActiveSub ? 'active' : 'none',
+      export_count: exportCount,
+      trial_status: newTrialStatus,
+      trial_started_at: trialStartedAt,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+
+    const remainingExports = hasActiveSub ? -1 : Math.max(0, 3 - exportCount);
+
+    logStep("Updated database with subscription info", { 
+      subscribed: hasActiveSub, 
+      subscriptionTier, 
+      exportCount,
+      trialStatus: newTrialStatus,
+      remainingExports
+    });
+    
+    return new Response(JSON.stringify({
       subscribed: hasActiveSub,
       subscription_tier: hasActiveSub ? subscriptionTier : null,
       subscription_end: subscriptionEnd,
-      free_exports_used: freeExportsUsed,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'email' });
-
-    logStep("Updated database with subscription info", { subscribed: hasActiveSub, subscriptionTier, freeExportsUsed });
-    return new Response(JSON.stringify({
-      subscribed: hasActiveSub,
-      subscription_tier: subscriptionTier,
-      subscription_end: subscriptionEnd,
-      free_exports_used: freeExportsUsed
+      export_count: exportCount,
+      trial_status: newTrialStatus,
+      subscription_status: hasActiveSub ? 'active' : 'none',
+      remaining_exports: remainingExports
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

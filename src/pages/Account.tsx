@@ -3,15 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare, Bug, CheckCircle, Clock, AlertTriangle, Sparkles, MousePointer, Upload, Youtube, FileVideo } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { User, BarChart3, HelpCircle, RefreshCw, Settings, ExternalLink, MessageSquare, Bug, CheckCircle, Clock, AlertTriangle, Sparkles, MousePointer, Upload, Youtube, FileVideo, Crown, Zap, Target } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { track } from "@vercel/analytics";
 
 import ContactForm from "@/components/ContactForm";
 
 const Account = () => {
-  const { user, loading, subscribed, subscriptionTier, checkSubscription } = useAuth();
+  const { user, loading, subscribed, subscriptionTier, exportCount, trialStatus, remainingExports, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
   const [isFeedbackFormOpen, setIsFeedbackFormOpen] = useState(false);
@@ -27,19 +30,19 @@ const Account = () => {
   const newFeatures = [
     {
       id: 1,
+      title: "Free Trial System",
+      description: "Implemented a 3-export free trial for new users. Includes real-time export tracking, trial status indicators, and seamless upgrade flow when trial expires.",
+      date: "2025.08.25",
+      status: "new" as const,
+      icon: <Target className="w-4 h-4" />
+    },
+    {
+      id: 2,
       title: "Video Format Selection",
       description: "Choose between MP4 (H.264) and WebM (VP9) formats for video export. MP4 offers better compatibility and smaller file sizes, while WebM provides better quality with open source codecs.",
       date: "2025.08.22",
       status: "new" as const,
       icon: <FileVideo className="w-4 h-4" />
-    },
-    {
-      id: 2,
-      title: "YouTube Video Downloader (Paused)",
-      description: "Feature development paused due to technical limitations. CORS policies and YouTube's ToS compliance require server-side infrastructure. UI/UX completed and ready for future implementation when proper backend is available.",
-      date: "2025.08.19",
-      status: "investigating" as const,
-      icon: <Youtube className="w-4 h-4" />
     },
     {
       id: 3,
@@ -56,6 +59,14 @@ const Account = () => {
       date: "2025.08.18",
       status: "new" as const,
       icon: <MousePointer className="w-4 h-4" />
+    },
+    {
+      id: 5,
+      title: "YouTube Video Downloader",
+      description: "Feature development paused due to technical limitations. CORS policies and YouTube's ToS compliance require server-side infrastructure. UI/UX completed and ready for future implementation when proper backend is available.",
+      date: "",
+      status: "planned" as const,
+      icon: <Youtube className="w-4 h-4" />
     }
   ];
 
@@ -96,12 +107,6 @@ const Account = () => {
       title: "Add more formats when exporting videos (MP4, AVI, etc.)",
       date: "2025.08.22",
       status: "fixed" as const
-    },
-    {
-      id: 7,
-      title: "Implement free trial",
-      date: "2025.08.01",
-      status: "investigating" as const
     }
   ];
 
@@ -115,6 +120,8 @@ const Account = () => {
         return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
       case 'under_development':
         return <Clock className="w-4 h-4 text-blue-500" />;
+      case 'planned':
+        return <Clock className="w-4 h-4 text-gray-400" />;
       default:
         return <Bug className="w-4 h-4 text-gray-500" />;
     }
@@ -130,6 +137,8 @@ const Account = () => {
         return 'Investigating';
       case 'under_development':
         return 'Under Development';
+      case 'planned':
+        return 'Planned';
       default:
         return 'Reported';
     }
@@ -145,6 +154,8 @@ const Account = () => {
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'under_development':
         return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'planned':
+        return 'bg-gray-100 text-gray-600 border-gray-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -311,6 +322,122 @@ const Account = () => {
               Manage your subscription and billing information
             </p>
           </div>
+
+          {/* Trial Status Section - Only show for non-subscribed users */}
+          {!subscribed && (
+            <Card className="bg-card/60 backdrop-blur-sm border-primary/10 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-primary/20">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`
+                      w-8 h-8 rounded-lg flex items-center justify-center
+                      ${trialStatus === 'expired' ? 'bg-red-500' : trialStatus === 'active' && remainingExports <= 1 ? 'bg-yellow-500' : 'bg-blue-500'}
+                    `}>
+                      {trialStatus === 'expired' ? (
+                        <AlertTriangle className="w-4 h-4 text-white" />
+                      ) : remainingExports <= 1 ? (
+                        <Zap className="w-4 h-4 text-white" />
+                      ) : (
+                        <Target className="w-4 h-4 text-white" />
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-lg font-semibold">Free Trial Status</span>
+                      <Badge 
+                        variant="secondary" 
+                        className={`
+                          ml-2 text-xs border
+                          ${trialStatus === 'expired' ? 'bg-red-500/10 text-red-400 border-red-500/20' : ''}
+                          ${trialStatus === 'active' && remainingExports <= 1 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : ''}
+                          ${trialStatus === 'active' && remainingExports > 1 ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : ''}
+                        `}
+                      >
+                        {trialStatus === 'expired' ? 'EXPIRED' : 'ACTIVE'}
+                      </Badge>
+                    </div>
+                  </div>
+                  {trialStatus === 'expired' || remainingExports <= 1 ? (
+                    <Button 
+                      onClick={() => {
+                        track('account_page_upgrade_click', { 
+                          export_count: exportCount, 
+                          trial_status: trialStatus,
+                          remaining_exports: remainingExports
+                        });
+                        navigate('/checkout');
+                      }}
+                      size="sm"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    >
+                      <Crown className="w-4 h-4 mr-2" />
+                      Upgrade
+                    </Button>
+                  ) : null}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Export Usage */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">Export Usage</span>
+                    <span className="text-muted-foreground">
+                      {exportCount}/3 exports used
+                    </span>
+                  </div>
+                  <Progress 
+                    value={(exportCount / 3) * 100} 
+                    className="h-3"
+                  />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {trialStatus === 'expired' ? (
+                        "Trial expired - Subscribe to continue"
+                      ) : remainingExports === 0 ? (
+                        "Last export used - Upgrade for unlimited"
+                      ) : remainingExports === 1 ? (
+                        "1 export remaining"
+                      ) : (
+                        `${remainingExports} exports remaining`
+                      )}
+                    </span>
+                    {trialStatus === 'active' && remainingExports > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        FREE TRIAL
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Upgrade Benefits */}
+                {(trialStatus === 'expired' || remainingExports <= 1) && (
+                  <div className="p-4 rounded-lg bg-gradient-to-r from-primary/5 to-secondary/5 border border-primary/10">
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <Crown className="w-4 h-4 text-yellow-500" />
+                      Unlock Premium Features
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        Unlimited exports
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        Priority processing
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        Advanced features
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        Premium support
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Account Grid */}
           <div className="grid md:grid-cols-2 gap-8">

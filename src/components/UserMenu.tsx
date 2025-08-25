@@ -16,7 +16,7 @@ const ADMIN_USERS = [
 
 const UserMenu = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   if (!user) return null;
 
@@ -47,7 +47,7 @@ const UserMenu = () => {
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={async () => {
-          await supabase.auth.signOut();
+          await signOut();
           navigate('/');
         }}>
           Sign out

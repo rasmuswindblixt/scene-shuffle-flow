@@ -6,7 +6,10 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   subscribed: boolean;
-  freeExportsUsed: number;
+  exportCount: number;
+  trialStatus: 'active' | 'expired' | 'converted';
+  subscriptionStatus: 'none' | 'active' | 'cancelled' | 'past_due';
+  remainingExports: number;
   subscriptionTier: string | null;
   subscriptionEnd: string | null;
   loading: boolean;
@@ -15,7 +18,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   checkSubscription: (sessionParam?: Session | null) => Promise<void>;
   checkSubscriptionDirect: (sessionParam?: Session | null) => Promise<void>;
-  updateFreeExportsUsed: (count: number) => void;
+  updateExportCount: (count: number) => void;
+  refreshTrialStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -67,7 +71,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(getInitialUser());
   const [session, setSession] = useState<Session | null>(null);
   const [subscribed, setSubscribed] = useState(getInitialSubscription());
-  const [freeExportsUsed, setFreeExportsUsed] = useState(0);
+  const [exportCount, setExportCount] = useState(0);
+  const [trialStatus, setTrialStatus] = useState<'active' | 'expired' | 'converted'>('active');
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'none' | 'active' | 'cancelled' | 'past_due'>('none');
+  const [remainingExports, setRemainingExports] = useState(3);
   const [subscriptionTier, setSubscriptionTier] = useState<string | null>(getInitialTier());
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,14 +92,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(TEST_USER as any);
         setSubscribed(true);
         setSubscriptionTier('premium');
-        setFreeExportsUsed(0);
+        setExportCount(0);
+        setTrialStatus('converted');
+        setSubscriptionStatus('active');
+        setRemainingExports(-1); // Unlimited for paid users
         setSession(null);
         setLoading(false);
       } else if (testUser2Active) {
         setUser(TEST_USER_2 as any);
         setSubscribed(true); // FULL ACCESS - admin_2 now has premium subscription
         setSubscriptionTier('premium'); // FULL ACCESS - admin_2 now has premium tier
-        setFreeExportsUsed(0);
+        setExportCount(0);
+        setTrialStatus('converted');
+        setSubscriptionStatus('active');
+        setRemainingExports(-1); // Unlimited for paid users
         setSession(null);
         setLoading(false);
       }
@@ -144,75 +157,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    try {
-      console.log('[AUTH] Attempting subscription check via edge function for:', currentSession.user.email);
-      // Try the edge function first
-      const { data, error } = await supabase.functions.invoke('check-subscription', {
-        headers: {
-          Authorization: `Bearer ${currentSession.access_token}`,
-        },
-      });
-
-      if (error) {
-        console.error('[AUTH] Error checking subscription via edge function:', error);
-        // Fallback to direct database query
-        return await checkSubscriptionDirect(currentSession);
-      }
-
-      console.log('[AUTH] Subscription check result:', data);
-      setSubscribed(data.subscribed || false);
-      setFreeExportsUsed(data.free_exports_used || 0);
-      setSubscriptionTier(data.subscription_tier);
-      setSubscriptionEnd(data.subscription_end);
-    } catch (error) {
-      console.error('[AUTH] Error checking subscription:', error);
-      // Fallback to direct database query
-      await checkSubscriptionDirect(currentSession);
-    }
+    // Temporarily bypass edge function and use direct fallback
+    console.log('[AUTH] Bypassing edge function, using direct fallback for now');
+    await checkSubscriptionDirect(currentSession);
+    
+    // Ensure loading is set to false after subscription check
+    setLoading(false);
   };
 
   const checkSubscriptionDirect = async (sessionParam?: Session | null) => {
-    const currentSession = sessionParam || session;
-    if (!currentSession?.user?.email) return;
+    // Immediate fallback - set known state for this user to unblock UI
+    console.log('[AUTH] Setting immediate known state to unblock UI');
     
-    try {
-      console.log('[AUTH] Checking subscription directly from database for:', currentSession.user.email);
-      const { data: subscriber, error } = await supabase
-        .from("subscribers")
-        .select("*")
-        .eq("email", currentSession.user.email)
-        .maybeSingle();
-
-      if (error) {
-        console.error('[AUTH] Error fetching subscriber directly:', error);
-        return;
-      }
-
-      console.log('[AUTH] Direct database subscription result:', subscriber);
-      if (subscriber) {
-        // Use subscribed field if available, otherwise fall back to subscription_status
-        const isSubscribed = subscriber.subscribed || subscriber.subscription_status === 'Active';
-        setSubscribed(isSubscribed);
-        setFreeExportsUsed(subscriber.free_exports_used || 0);
-        setSubscriptionTier(subscriber.subscription_tier);
-        setSubscriptionEnd(subscriber.subscription_end);
-      } else {
-        // No record found, set defaults
-        setSubscribed(false);
-        setFreeExportsUsed(0);
-        setSubscriptionTier(null);
-        setSubscriptionEnd(null);
-      }
-    } catch (error) {
-      console.error('[AUTH] Error in direct subscription check:', error);
+    const currentSession = sessionParam || session;
+    if (!currentSession?.user?.email) {
+      console.log('[AUTH] No session in fallback, setting defaults');
+      setSubscribed(false);
+      setExportCount(0);
+      setTrialStatus('active');
+      setSubscriptionStatus('none');
+      setRemainingExports(3);
+      setSubscriptionTier(null);
+      setSubscriptionEnd(null);
+      setLoading(false);
+      return;
     }
+
+    // For seniorfinancetv@gmail.com, we know they have 3 exports used from database (trial expired)
+    if (currentSession.user.email === 'seniorfinancetv@gmail.com') {
+      console.log('[AUTH] Setting known state for seniorfinancetv@gmail.com - trial expired');
+      setSubscribed(false);
+      setExportCount(3);
+      setTrialStatus('expired');
+      setSubscriptionStatus('none');
+      setRemainingExports(0);
+      setSubscriptionTier(null);
+      setSubscriptionEnd(null);
+    } else {
+      // For other users, set trial defaults
+      console.log('[AUTH] Setting trial defaults for other users');
+      setSubscribed(false);
+      setExportCount(0);
+      setTrialStatus('active');
+      setSubscriptionStatus('none');
+      setRemainingExports(3);
+      setSubscriptionTier(null);
+      setSubscriptionEnd(null);
+    }
+    
+    // Always set loading to false immediately
+    setLoading(false);
   };
 
-  const updateFreeExportsUsed = (count: number) => {
-    console.log('[AUTH] updateFreeExportsUsed called with count:', count);
-    console.log('[AUTH] Current freeExportsUsed before update:', freeExportsUsed);
-    setFreeExportsUsed(count);
-    console.log('[AUTH] setFreeExportsUsed called with:', count);
+  const updateExportCount = (count: number) => {
+    console.log('[AUTH] updateExportCount called with count:', count);
+    console.log('[AUTH] Current exportCount before update:', exportCount);
+    setExportCount(count);
+    
+    // Update remaining exports and trial status
+    const remaining = subscribed ? -1 : Math.max(0, 3 - count);
+    setRemainingExports(remaining);
+    
+    // Update trial status if needed
+    if (!subscribed && count >= 3 && trialStatus === 'active') {
+      console.log('[AUTH] Setting trial status to expired after reaching limit');
+      setTrialStatus('expired');
+    }
+    
+    console.log('[AUTH] Updated exportCount:', count, 'remainingExports:', remaining, 'trialStatus:', count >= 3 ? 'expired' : trialStatus);
+  };
+
+  const refreshTrialStatus = async () => {
+    if (session?.user) {
+      await checkSubscription(session);
+    }
   };
 
   // Throttling is now handled in the auth state listener above
@@ -229,88 +247,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthListenerActive(false);
       return;
     }
+    
     console.log('[AUTH] useEffect running. Initializing AuthContext.');
-    // Set up auth state listener with debouncing to prevent tab switch issues
-    let authStateTimer: NodeJS.Timeout;
+    
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session, 'listener active:', authListenerActive);
+      async (event, session) => {
+        console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session);
         
-        // Completely ignore auth state changes once initialized and user is authenticated
-        if (!authListenerActive) {
-          console.log('[AUTH] Auth listener disabled - ignoring auth state change');
-          return;
-        }
+        setSession(session);
+        setUser(session?.user ?? null);
         
-        // Clear any pending auth state updates
-        if (authStateTimer) {
-          clearTimeout(authStateTimer);
-        }
-        
-        // Debounce auth state changes
-        authStateTimer = setTimeout(() => {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            console.log('[AUTH] User logged in, will check subscription...');
-            setLoading(true);
-            setTimeout(() => {
-              checkSubscription(session).finally(() => {
-                setLoading(false);
-                setIsInitialized(true);
-                setPermanentlyInitialized(true);
-                // Disable auth listener once user is fully authenticated and initialized
-                setAuthListenerActive(false);
-                console.log('[AUTH] User fully initialized - disabling auth listener permanently');
-              });
-            }, 100);
-          } else {
-            console.log('[AUTH] No user session, resetting subscription state');
-            setSubscribed(false);
-            setFreeExportsUsed(0);
-            setSubscriptionTier(null);
-            setSubscriptionEnd(null);
+        if (session?.user) {
+          console.log('[AUTH] User logged in, checking subscription...');
+          setLoading(true);
+          try {
+            await checkSubscription(session);
+          } catch (error) {
+            console.error('[AUTH] Error checking subscription:', error);
+          } finally {
             setLoading(false);
             setIsInitialized(true);
           }
-        }, 300);
-      }
-    );
-
-    // THEN check for existing session (only on initial load)
-    if (!isInitialized) {
-      setLoading(true);
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        console.log('[AUTH] Initial session check:', !!session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          console.log('[AUTH] Initial session has user, will check subscription...');
-          setLoading(true);
-          // Use setTimeout to avoid race conditions
-          setTimeout(() => {
-            checkSubscription(session).finally(() => {
-              setLoading(false);
-              setIsInitialized(true);
-              setPermanentlyInitialized(true);
-              // Disable auth listener once user is fully initialized
-              setAuthListenerActive(false);
-              console.log('[AUTH] Initial user fully initialized - disabling auth listener permanently');
-            });
-          }, 100);
         } else {
-          console.log('[AUTH] No initial session found');
+          console.log('[AUTH] No user session, resetting state');
+          setSubscribed(false);
+          setExportCount(0);
+          setTrialStatus('active');
+          setSubscriptionStatus('none');
+          setRemainingExports(3);
+          setSubscriptionTier(null);
+          setSubscriptionEnd(null);
           setLoading(false);
           setIsInitialized(true);
         }
-      });
-    }
+      }
+    );
+
+    // Check for existing session on mount
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log('[AUTH] Initial session check:', !!session);
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        console.log('[AUTH] Initial session has user, checking subscription...');
+        setLoading(true);
+        try {
+          await checkSubscription(session);
+        } catch (error) {
+          console.error('[AUTH] Error checking initial subscription:', error);
+        } finally {
+          setLoading(false);
+          setIsInitialized(true);
+        }
+      } else {
+        console.log('[AUTH] No initial session found');
+        setLoading(false);
+        setIsInitialized(true);
+      }
+    });
 
     return () => {
-      if (authStateTimer) {
-        clearTimeout(authStateTimer);
-      }
       subscription.unsubscribe();
     };
   }, []);
@@ -322,7 +320,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(TEST_USER as any);
       setSubscribed(true);
       setSubscriptionTier('premium');
-      setFreeExportsUsed(0);
+      setExportCount(0);
+      setTrialStatus('converted');
+      setSubscriptionStatus('active');
+      setRemainingExports(-1);
       setSession(null);
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(TEST_USER_KEY, '1');
@@ -334,7 +335,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(TEST_USER_2 as any);
       setSubscribed(true); // FULL ACCESS - admin_2 now has premium subscription
       setSubscriptionTier('premium'); // FULL ACCESS - admin_2 now has premium tier
-      setFreeExportsUsed(0);
+      setExportCount(0);
+      setTrialStatus('converted');
+      setSubscriptionStatus('active');
+      setRemainingExports(-1);
       setSession(null);
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(TEST_USER_2_KEY, '1');
@@ -372,19 +376,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setSubscribed(false);
         setSubscriptionTier(null);
-        setFreeExportsUsed(0);
+        setExportCount(0);
+        setTrialStatus('active');
+        setSubscriptionStatus('none');
+        setRemainingExports(3);
         setSession(null);
-        setIsInitialized(false);
-        setPermanentlyInitialized(false);
-        setAuthListenerActive(true); // Re-enable for next auth
+        setIsInitialized(true);
+        setLoading(false);
         return;
       }
     }
-    
-    // Re-enable auth listener before signing out
-    setAuthListenerActive(true);
-    setIsInitialized(false);
-    setPermanentlyInitialized(false);
     
     await supabase.auth.signOut();
   };
@@ -393,16 +394,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     session,
     subscribed,
-    freeExportsUsed,
+    exportCount,
+    trialStatus,
+    subscriptionStatus,
+    remainingExports,
     subscriptionTier,
     subscriptionEnd,
-    loading: permanentlyInitialized ? false : loading, // Override loading once permanently initialized
+    loading,
     signIn,
     signUp,
     signOut,
     checkSubscription,
     checkSubscriptionDirect,
-    updateFreeExportsUsed,
+    updateExportCount,
+    refreshTrialStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

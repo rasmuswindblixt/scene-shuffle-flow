@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Zap, Shield, Download, Upload, Cpu, Check, ChevronRight, Play, CheckCircle, Shuffle, Clock } from "lucide-react";
+import { Zap, Shield, Download, Upload, Cpu, Check, ChevronRight, Play, CheckCircle, Shuffle, Clock, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import UserMenu from "@/components/UserMenu";
 import ContactForm from "@/components/ContactForm";
@@ -24,6 +24,7 @@ const Landing = () => {
   const { user } = useAuth();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
   const [videoLoading, setVideoLoading] = useState(true);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   const features = [
     {
@@ -81,16 +82,24 @@ const Landing = () => {
 
   const faqs = [
     {
-      question: "Do I need to make videos for this to work?",
-              answer: "No! ClipMixPRO works with any existing video content. Simply upload your video file and our AI handles the rest - detecting scenes, filtering optimal clips, and shuffling them to create unique content."
+      question: "How does ClipMixPRO help me avoid YouTube's reused content policies?",
+      answer: "Our advanced AI doesn't just shuffle randomly - it intelligently ensures no adjacent scenes maintain their original order, creates unique timing patterns, and filters clips to optimal lengths. This makes your content truly unique in YouTube's eyes, helping you pass content checks that manual editing often misses."
     },
     {
-      question: "What if I want to edit a video before it's processed?",
-              answer: "ClipMixPRO is designed for automatic processing to save you time. However, you can always re-shuffle the same video multiple times to get different arrangements until you find the perfect version."
+      question: "How much time will this actually save me?",
+      answer: "Most creators spend 2-4 hours manually cutting, splitting, and rearranging footage for each video. ClipMixPRO does this in under 60 seconds. That's potentially 20+ hours saved per week for active creators - time you can spend creating more content or growing your audience."
     },
     {
-      question: "What if I don't want videos processed automatically?",
-              answer: "The automatic processing is what makes ClipMixPRO powerful and time-saving. The AI optimization ensures the best results for avoiding reused content policies while maintaining video quality."
+      question: "What if I'm not satisfied with the shuffled result?",
+      answer: "No problem! You can instantly re-shuffle the same video multiple times with different algorithms until you get the perfect arrangement. Plus, you have full control over scene selection - choose exactly which clips to include or exclude before processing."
+    },
+    {
+      question: "Will this work with my existing video editing workflow?",
+      answer: "Absolutely! ClipMixPRO exports standard MP4 and WebM files that work with any video editor. Use it as a preprocessing step to create unique base content, then add your usual effects, transitions, and branding. Many creators use it to quickly generate multiple variations from one source video."
+    },
+    {
+      question: "Is the free trial really free? What's the catch?",
+      answer: "The free trial is completely free with no hidden fees or credit card required. You get full access to all features including AI scene detection, smart shuffling, HD exports, and up to 3 videos per upload. The only limitation is the number of exports - after that, you'll love the results so much you'll want to upgrade anyway!"
     }
   ];
 
@@ -123,7 +132,7 @@ const Landing = () => {
                 </Button>
               )}
               <Button onClick={() => navigate('/app')} className="bg-gradient-primary hover:opacity-90">
-                Start Shuffling
+                Try Free
               </Button>
             </div>
           </div>
@@ -138,9 +147,14 @@ const Landing = () => {
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
               Stop wasting hours shuffling scenes—<span className="gradient-text">ClipMixPRO does it for you</span> in 60 seconds.
             </h1>
-            <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
               Faceless-YouTube creators spend most of their day cutting, splitting, and shuffling footage just to stay compliant. ClipMixPRO does it for you. Just upload your clips and let our AI work its magic.
             </p>
+            
+            <div className="inline-flex items-center gap-2 bg-green-500/10 text-green-400 px-4 py-2 rounded-full border border-green-500/20 mb-8">
+              <CheckCircle className="w-4 h-4" />
+              <span className="text-sm font-medium">Free Trial • No Credit Card Required</span>
+            </div>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
               <Button 
@@ -148,7 +162,7 @@ const Landing = () => {
                 className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
                 onClick={() => navigate('/app')}
               >
-                Automate My Edit
+                Start Free Trial
               </Button>
               <Button 
                 size="lg" 
@@ -306,7 +320,7 @@ const Landing = () => {
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
-              { step: "01", title: "Upload Video", desc: "Simply upload your video file. We support all major formats up to 40 minutes." },
+              { step: "01", title: "Upload Videos", desc: "Upload up to 3 video files. We support all major formats up to 60 minutes each." },
               { step: "02", title: "AI Analysis", desc: "Our advanced AI detects scene changes, filters clips to 1-6 seconds, and applies smart shuffle algorithms." },
               { step: "03", title: "Download Result", desc: "Get your copyright-safe, uniquely shuffled video in HD quality ready for immediate upload." }
             ].map((step, index) => (
@@ -498,8 +512,8 @@ const Landing = () => {
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />AI-powered scene detection</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Smart shuffle algorithm</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />HD video exports</li>
-                  <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Up to 30-minute videos</li>
-                  <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Mix up to 2 videos together</li>
+                  <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Up to 60-minute videos</li>
+                  <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Mix up to 3 videos together</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Custom video length control</li>
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />100% copyright-safe output</li>
                 </ul>
@@ -508,7 +522,7 @@ const Landing = () => {
                   className="w-full bg-gradient-primary hover:opacity-90 shadow-primary"
                   onClick={() => navigate('/app')}
                 >
-                  Start Shuffling Now
+                  Get Started Free
                 </Button>
               </CardContent>
             </Card>
@@ -526,17 +540,33 @@ const Landing = () => {
           </div>
 
           <div className="max-w-3xl mx-auto space-y-4">
-            {faqs.map((faq, index) => (
-              <Card key={index} className="bg-card/50 backdrop-blur border-primary/10">
-                <CardContent className="p-8">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center">
-                    <span className="text-primary mr-2">+</span>
-                    {faq.question}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed pl-6">{faq.answer}</p>
-                </CardContent>
-              </Card>
-            ))}
+            {faqs.map((faq, index) => {
+              const isOpen = openFaqIndex === index;
+              return (
+                <Card key={index} className="bg-card/50 backdrop-blur border-primary/10 transition-all duration-200 hover:border-primary/20">
+                  <CardContent className="p-0">
+                    <button
+                      className="w-full p-8 text-left flex items-center justify-between hover:bg-card/20 transition-colors"
+                      onClick={() => setOpenFaqIndex(isOpen ? null : index)}
+                    >
+                      <h3 className="text-lg font-semibold pr-4">
+                        {faq.question}
+                      </h3>
+                      <ChevronDown 
+                        className={`w-5 h-5 text-primary transition-transform duration-200 flex-shrink-0 ${
+                          isOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                    {isOpen && (
+                      <div className="px-8 pb-8 pt-0">
+                        <p className="text-muted-foreground leading-relaxed">{faq.answer}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </section>
