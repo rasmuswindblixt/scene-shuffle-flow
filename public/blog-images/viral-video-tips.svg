@@ -1,0 +1,33 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="675" fill="url(#gradient2)"/>
+  <defs>
+    <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10B981;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Trending arrow -->
+  <path d="M400 400 L500 300 L600 350 L700 250 L800 200" stroke="white" stroke-width="8" fill="none" opacity="0.9"/>
+  <circle cx="800" cy="200" r="12" fill="white"/>
+  
+  <!-- Title -->
+  <text x="600" y="450" font-family="Arial, sans-serif" font-size="48" font-weight="bold" text-anchor="middle" fill="white">
+    Viral Video Creation
+  </text>
+  
+  <!-- Subtitle -->
+  <text x="600" y="500" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="white" opacity="0.8">
+    Tips &amp; Strategies for Short-Form Content
+  </text>
+  
+  <!-- Stats elements -->
+  <text x="200" y="150" font-family="Arial, sans-serif" font-size="18" fill="white" opacity="0.7">1M+ Views</text>
+  <text x="1000" y="150" font-family="Arial, sans-serif" font-size="18" fill="white" opacity="0.7">Trending</text>
+  
+  <!-- Decorative elements -->
+  <circle cx="150" cy="200" r="4" fill="white" opacity="0.4"/>
+  <circle cx="1050" cy="250" r="6" fill="white" opacity="0.3"/>
+  <circle cx="100" cy="550" r="3" fill="white" opacity="0.5"/>
+  <circle cx="1100" cy="500" r="5" fill="white" opacity="0.4"/>
+</svg>

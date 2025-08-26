@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, Clock, ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BlogPost {
   slug: string;
@@ -14,6 +15,7 @@ interface BlogPost {
   category: string;
   image: string;
   content: string;
+  hidden?: boolean;
 }
 
 export default function BlogPost() {
@@ -24,10 +26,32 @@ export default function BlogPost() {
   useEffect(() => {
     const loadBlogPost = async () => {
       try {
-        const response = await fetch('/blog-posts.json');
-        const posts: BlogPost[] = await response.json();
-        const foundPost = posts.find(p => p.slug === slug);
-        setPost(foundPost || null);
+        // Load directly from Supabase
+        const { data: posts, error } = await supabase
+          .from('blog_posts')
+          .select('*')
+          .eq('slug', slug)
+          .eq('hidden', false)
+          .single();
+
+        if (error) {
+          console.error('Error loading blog post:', error);
+          setPost(null);
+        } else {
+          // Convert Supabase format to BlogPost format
+          const formattedPost: BlogPost = {
+            slug: posts.slug,
+            title: posts.title,
+            excerpt: posts.excerpt,
+            date: posts.date,
+            readTime: posts.read_time,
+            category: posts.category,
+            content: posts.content,
+            image: posts.image,
+            hidden: posts.hidden
+          };
+          setPost(formattedPost);
+        }
       } catch (error) {
         console.error('Failed to load blog post:', error);
         setPost(null);
