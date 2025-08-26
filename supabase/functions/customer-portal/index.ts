@@ -57,7 +57,17 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    const origin = req.headers.get("origin") || "https://clipmixpro.com";
+    // Get origin from request headers, with smart fallback for different environments
+    const origin = req.headers.get("origin") || 
+                   req.headers.get("referer")?.split('/').slice(0, 3).join('/') ||
+                   (Deno.env.get("VERCEL_URL") ? `https://${Deno.env.get("VERCEL_URL")}` : "https://clipmixpro.com");
+    
+    logStep("Origin detection", { 
+      origin: origin,
+      headerOrigin: req.headers.get("origin"),
+      referer: req.headers.get("referer"),
+      vercelUrl: Deno.env.get("VERCEL_URL")
+    });
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${origin}/app`,

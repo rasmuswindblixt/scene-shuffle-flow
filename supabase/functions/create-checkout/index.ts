@@ -70,7 +70,18 @@ serve(async (req) => {
       logStep("No existing customer found");
     }
 
-    const origin = req.headers.get("origin") || "https://clipmixpro.com";
+    // Get origin from request headers, with smart fallback for different environments
+    const origin = req.headers.get("origin") || 
+                   req.headers.get("referer")?.split('/').slice(0, 3).join('/') ||
+                   (Deno.env.get("VERCEL_URL") ? `https://${Deno.env.get("VERCEL_URL")}` : "https://clipmixpro.com");
+    
+    logStep("Origin detection", { 
+      origin: origin,
+      headerOrigin: req.headers.get("origin"),
+      referer: req.headers.get("referer"),
+      vercelUrl: Deno.env.get("VERCEL_URL")
+    });
+    
     logStep("Creating checkout session", { origin });
 
     const session = await stripe.checkout.sessions.create({
