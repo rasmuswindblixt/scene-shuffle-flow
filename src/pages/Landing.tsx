@@ -305,53 +305,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20 lg:py-32 relative">
-        <div className="absolute inset-0 hero-glow opacity-30"></div>
-        <div className="container mx-auto px-6 relative">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">
-              Simple <span className="gradient-text">3-Step Process</span>
-            </h2>
-            <p className="text-xl text-muted-foreground">
-              From upload to copyright-safe video in minutes
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {[
-              { step: "01", title: "Upload Videos", desc: "Upload up to 3 video files. We support all major formats up to 60 minutes each." },
-              { step: "02", title: "AI Analysis", desc: "Our advanced AI detects scene changes, filters clips to 1-6 seconds, and applies smart shuffle algorithms." },
-              { step: "03", title: "Download Result", desc: "Get your copyright-safe, uniquely shuffled video in HD quality ready for immediate upload." }
-            ].map((step, index) => (
-              <div key={index} className="text-center relative">
-                {/* Connecting line - positioned behind circle */}
-                {index < 2 && (
-                  <div className="hidden md:block absolute top-8 left-full w-full h-0.5 bg-gradient-to-r from-primary to-transparent -translate-x-1/2 z-0"></div>
-                )}
-                {/* Circle - positioned in front of line */}
-                <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold text-xl mb-6 mx-auto shadow-primary relative z-10">
-                  {step.step}
-                </div>
-                <h3 className="text-xl font-semibold mb-4">{step.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{step.desc}</p>
-              </div>
-            ))}
-          </div>
-          
-          {/* CTA Button */}
-          <div className="text-center mt-12">
-            <Button 
-              size="lg" 
-              className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
-              onClick={() => navigate('/app')}
-            >
-              Automate My Edit Now
-            </Button>
-          </div>
-        </div>
-      </section>
-
       {/* Demo Video Section */}
       <section id="demo" className="py-20 lg:py-32 relative overflow-hidden">
         <div className="absolute inset-0 hero-glow opacity-20"></div>
@@ -446,40 +399,125 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section id="testimonials" className="py-20 lg:py-32">
-        <div className="container mx-auto px-6">
+      {/* How It Works */}
+      <section className="py-20 lg:py-32 relative">
+        <div className="absolute inset-0 hero-glow opacity-30"></div>
+        <div className="container mx-auto px-6 relative">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold mb-6">
-              Trusted by <span className="gradient-text">Content Creators</span>
+              Simple <span className="gradient-text">3-Step Process</span>
             </h2>
             <p className="text-xl text-muted-foreground">
-              See what creators are saying about ClipMixPRO
+              From upload to copyright-safe video in minutes
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {[
+              { step: "01", title: "Upload Videos", desc: "Upload up to 3 video files. We support all major formats up to 60 minutes each." },
+              { step: "02", title: "AI Analysis", desc: "Our advanced AI detects scene changes, filters clips to 1-6 seconds, and applies smart shuffle algorithms." },
+              { step: "03", title: "Download Result", desc: "Get your copyright-safe, uniquely shuffled video in HD quality ready for immediate upload." }
+            ].map((step, index) => (
+              <div key={index} className="text-center relative">
+                {/* Connecting line - positioned behind circle */}
+                {index < 2 && (
+                  <div className="hidden md:block absolute top-8 left-full w-full h-0.5 bg-gradient-to-r from-primary to-transparent -translate-x-1/2 z-0"></div>
+                )}
+                {/* Circle - positioned in front of line */}
+                <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold text-xl mb-6 mx-auto shadow-primary relative z-10">
+                  {step.step}
+                </div>
+                <h3 className="text-xl font-semibold mb-4">{step.title}</h3>
+                <p className="text-muted-foreground leading-relaxed">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+          
+          {/* CTA Button */}
+          <div className="text-center mt-12">
+            <Button 
+              size="lg" 
+              className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
+              onClick={() => navigate('/app')}
+            >
+              Automate My Edit Now
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section id="testimonials" className="py-20 lg:py-32 relative overflow-hidden">
+        {/* Enhanced Background Effects */}
+        <div className="absolute inset-0 hero-glow opacity-40"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent"></div>
+        <div className="absolute top-1/2 left-1/4 w-96 h-96 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-full blur-3xl opacity-60 animate-pulse"></div>
+        <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-gradient-to-r from-secondary/10 to-primary/10 rounded-full blur-3xl opacity-60 animate-pulse delay-1000"></div>
+        
+        <div className="container mx-auto px-6 relative">
+          <div className="text-center mb-20">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full border border-primary/20 mb-6">
+              <CheckCircle className="w-4 h-4" />
+              <span className="text-sm font-medium">Real Success Stories</span>
+            </div>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">
+              Trusted by <span className="gradient-text">Content Creators</span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              See what creators are saying about ClipMixPRO and how it's transforming their workflow
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {testimonials.map((testimonial, index) => (
-              <Card key={index} className="card-hover bg-card/50 backdrop-blur border-primary/10">
-                <CardContent className="p-8">
+              <Card key={index} className="card-hover bg-card/70 backdrop-blur-lg border-primary/20 shadow-xl hover:shadow-2xl hover:shadow-primary/20 transition-all duration-500 group relative overflow-hidden">
+                {/* Card Glow Effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-1 -right-1 w-20 h-20 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full blur-2xl opacity-0 group-hover:opacity-60 transition-opacity duration-500"></div>
+                
+                <CardContent className="p-8 relative">
+                  {/* Quote Icon */}
+                  <div className="absolute top-4 right-6 text-6xl text-primary/10 font-serif leading-none">"</div>
+                  
                   <div className="flex items-center mb-6">
-                    <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold mr-4">
+                    <div className="w-14 h-14 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold text-lg mr-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
                       {testimonial.name[0]}
                     </div>
                     <div>
-                      <h4 className="font-semibold">{testimonial.name}</h4>
-                      <p className="text-sm text-muted-foreground">{testimonial.views}</p>
+                      <h4 className="font-semibold text-lg">{testimonial.name}</h4>
+                      <p className="text-sm text-muted-foreground font-medium">{testimonial.views}</p>
                     </div>
                   </div>
-                  <p className="text-muted-foreground leading-relaxed mb-4">"{testimonial.content}"</p>
-                  <div className="flex items-center">
-                    {[1,2,3,4,5].map((star) => (
-                      <CheckCircle key={star} className="w-4 h-4 text-primary mr-1" />
-                    ))}
+                  
+                  <p className="text-muted-foreground leading-relaxed mb-6 text-lg relative z-10">"{testimonial.content}"</p>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      {[1,2,3,4,5].map((star) => (
+                        <CheckCircle key={star} className="w-5 h-5 text-primary mr-1 drop-shadow-sm" />
+                      ))}
+                    </div>
+                    <div className="text-xs text-primary font-medium bg-primary/10 px-3 py-1 rounded-full">
+                      Verified
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             ))}
+          </div>
+          
+          {/* Bottom CTA */}
+          <div className="text-center mt-16">
+            <p className="text-lg text-muted-foreground mb-6">
+              Join <span className="font-semibold gradient-text">500+ creators</span> who trust ClipMixPRO
+            </p>
+            <Button 
+              size="lg" 
+              className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary hover:shadow-xl transition-all duration-300"
+              onClick={() => navigate('/app')}
+            >
+              Start Your Success Story
+            </Button>
           </div>
         </div>
       </section>
