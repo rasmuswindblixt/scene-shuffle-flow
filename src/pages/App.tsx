@@ -8,14 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { HelpCircle } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
-import TrialBanner from "@/components/TrialBanner";
+// Removed trial banner as trial feature is deprecated
 import ContactForm from "@/components/ContactForm";
 
 const VideoApp = () => {
   const [uploadedVideos, setUploadedVideos] = useState<File[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
-  const { user, loading, subscribed, trialStatus, remainingExports, exportCount, checkSubscription } = useAuth();
+  const { user, loading, subscribed, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
@@ -118,31 +118,29 @@ const VideoApp = () => {
     </header>
   );
 
-  // Subscription paywall - only show if user has no subscription AND has never had access (not just expired)
-  // Allow users to stay in app even after using all 3 exports - paywall will show when they try to export again
-  const hasAccess = subscribed || exportCount < 4; // Allow up to 3 exports (0,1,2,3) before blocking access
+  // Subscription paywall - access is granted only to subscribed (premium) users
+  const hasAccess = subscribed;
   
-  console.log('[APP] Access check:', { subscribed, trialStatus, remainingExports, exportCount, hasAccess });
+  console.log('[APP] Access check:', { subscribed, hasAccess });
   
   if (!hasAccess) {
     return (
       <div className="min-h-screen bg-background">
         <SimpleHeader />
-        <TrialBanner />
         <main className="container mx-auto px-6 py-8">
           <div className="max-w-4xl mx-auto text-center space-y-8">
             {/* Hero Section */}
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 bg-red-500/10 text-red-400 px-4 py-2 rounded-full border border-red-500/20 mb-4">
                 <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></span>
-                <span className="text-sm font-medium">FREE TRIAL EXPIRED</span>
+                <span className="text-sm font-medium">SUBSCRIPTION REQUIRED</span>
               </div>
               <h1 className="text-4xl md:text-5xl font-bold mb-4">
                 Ready to Scale Your 
                 <span className="gradient-text"> Content Creation</span>?
               </h1>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                You've experienced the power of ClipMixPRO. Now unlock unlimited video processing and advanced features to dominate YouTube's algorithm.
+                Subscribe to unlock unlimited video processing and advanced features to dominate YouTube's algorithm.
               </p>
             </div>
 
@@ -237,7 +235,6 @@ const VideoApp = () => {
   return (
     <div className="min-h-screen bg-background">
       <SimpleHeader />
-      <TrialBanner />
       <main className="pt-6">
         {uploadedVideos.length === 0 && (
           <>

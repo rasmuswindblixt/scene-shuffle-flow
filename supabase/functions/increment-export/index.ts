@@ -6,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Complimentary premium accounts — bypass subscription check
+const COMPLIMENTARY_PREMIUM_EMAILS = ["pptskolan@gmail.com"];
+
 serve(async (req) => {
   console.log('[INCREMENT-EXPORT] Request received:', req.method, req.url);
 
@@ -57,7 +60,7 @@ serve(async (req) => {
 
     console.log('[INCREMENT-EXPORT] User validated:', user.email);
 
-    // Get user profile with trial information
+    // Get user profile
     let { data: profile, error: selectError } = await supabaseAdmin
       .from("profiles")
       .select("*")
@@ -77,84 +80,55 @@ serve(async (req) => {
       });
     }
 
-    // Create profile if doesn't exist (shouldn't happen with proper auth flow)
+    // If no profile, check if complimentary before blocking
     if (!profile) {
-      console.log('[INCREMENT-EXPORT] Creating new profile');
-      const { data: newProfile, error: insertError } = await supabaseAdmin
-        .from("profiles")
-        .insert({
-          id: user.id,
-          email: user.email,
-          export_count: 1,
-          trial_status: 'active',
-          trial_started_at: new Date().toISOString(),
-          subscription_status: 'none'
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.log('[INCREMENT-EXPORT] Insert error:', insertError);
-        return new Response(JSON.stringify({ error: "Failed to create profile record" }), {
+      if (COMPLIMENTARY_PREMIUM_EMAILS.includes(user.email.toLowerCase())) {
+        console.log('[INCREMENT-EXPORT] No profile but complimentary premium – allowing export');
+        return new Response(JSON.stringify({
+          success: true,
+          export_count: 0,
+          subscription_status: 'active',
+        }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
+          status: 200,
         });
       }
-
-      console.log('[INCREMENT-EXPORT] New profile created');
+      console.log('[INCREMENT-EXPORT] No profile found – subscription required');
       return new Response(JSON.stringify({
-        success: true,
-        export_count: 1,
-        trial_status: 'active',
-        subscription_status: 'none',
-        remaining_exports: 2
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-
-    // Check if user has active subscription
-    const hasActiveSubscription = profile.subscription_status === 'active';
-    
-    // Check trial export limit (3 exports for free trial)
-    const TRIAL_EXPORT_LIMIT = 3;
-    if (!hasActiveSubscription && profile.export_count >= TRIAL_EXPORT_LIMIT && profile.trial_status !== 'converted') {
-      console.log('[INCREMENT-EXPORT] Trial export limit reached');
-      
-      // Mark trial as expired
-      await supabaseAdmin
-        .from("profiles")
-        .update({ trial_status: 'expired' })
-        .eq("id", user.id);
-
-      return new Response(JSON.stringify({
-        error: "Free trial limit reached. Please subscribe to continue.",
-        export_count: profile.export_count,
-        trial_status: 'expired',
-        subscription_status: profile.subscription_status,
-        remaining_exports: 0
+        error: "Subscription required to export. Please subscribe to continue.",
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 403,
       });
     }
 
-    // Increment export count (for both trial and paid users - for analytics)
-    const newExportCount = profile.export_count + 1;
-    let newTrialStatus = profile.trial_status;
-    
-    // Update trial status if this is the last free export
-    if (!hasActiveSubscription && newExportCount >= TRIAL_EXPORT_LIMIT) {
-      newTrialStatus = 'expired';
+    // Check if user has active subscription or is a complimentary premium account
+    const isComplimentary = COMPLIMENTARY_PREMIUM_EMAILS.includes(user.email.toLowerCase());
+    const hasActiveSubscription = profile.subscription_status === 'active' || isComplimentary;
+
+    if (isComplimentary) {
+      console.log('[INCREMENT-EXPORT] Complimentary premium account:', user.email);
     }
 
-    console.log('[INCREMENT-EXPORT] Incrementing export count');
+    // Require subscription for export
+    if (!hasActiveSubscription) {
+      console.log('[INCREMENT-EXPORT] User not subscribed – blocking export');
+      return new Response(JSON.stringify({
+        error: "Subscription required to export. Please subscribe to continue.",
+        subscription_status: profile.subscription_status,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+      });
+    }
+
+    // Increment export count for analytics (subscribed users only)
+    const newExportCount = (profile.export_count || 0) + 1;
+    console.log('[INCREMENT-EXPORT] Incrementing export count for subscribed user');
     const { error: updateError } = await supabaseAdmin
       .from("profiles")
       .update({
-        export_count: newExportCount,
-        trial_status: newTrialStatus
+        export_count: newExportCount
       })
       .eq("id", user.id);
 
@@ -166,15 +140,11 @@ serve(async (req) => {
       });
     }
 
-    const remainingExports = hasActiveSubscription ? -1 : Math.max(0, TRIAL_EXPORT_LIMIT - newExportCount);
-
     console.log('[INCREMENT-EXPORT] Success! Export count:', newExportCount);
     return new Response(JSON.stringify({
       success: true,
       export_count: newExportCount,
-      trial_status: newTrialStatus,
-      subscription_status: profile.subscription_status,
-      remaining_exports: remainingExports
+      subscription_status: profile.subscription_status
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

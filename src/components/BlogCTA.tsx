@@ -12,16 +12,16 @@ interface BlogCTAProps {
 export default function BlogCTA({ 
   variant = "default",
   title = "Ready to Transform Your Video Editing?",
-  description = "Experience the power of AI-driven video editing with ClipMix Pro. Start your free trial today."
+  description = "Experience the power of AI-driven video editing with ClipMix Pro. Try the app now — exporting requires a subscription."
 }: BlogCTAProps) {
   if (variant === "compact") {
     return (
       <div className="inline-flex items-center gap-2 p-4 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg border border-primary/20">
         <Sparkles className="w-5 h-5 text-primary" />
-        <span className="text-sm font-medium">Try ClipMix Pro free for 7 days</span>
+        <span className="text-sm font-medium">Try the app now — export with Premium</span>
         <Link to="/app">
           <Button size="sm" variant="outline">
-            Start Trial
+            Open App
             <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         </Link>
@@ -43,7 +43,7 @@ export default function BlogCTA({
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/app">
               <Button size="lg" className="w-full sm:w-auto group">
-                Start Free Trial
+                Open App
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
@@ -53,9 +53,7 @@ export default function BlogCTA({
               </Button>
             </Link>
           </div>
-          <p className="text-sm text-muted-foreground mt-4">
-            No credit card required • 7-day free trial • Cancel anytime
-          </p>
+          <p className="text-sm text-muted-foreground mt-4">Preview is free • Export requires subscription</p>
         </CardContent>
       </Card>
     );
@@ -71,7 +69,7 @@ export default function BlogCTA({
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link to="/app">
             <Button size="lg" className="w-full sm:w-auto">
-              Start Free Trial
+              Open App
             </Button>
           </Link>
           <Link to="/#pricing">

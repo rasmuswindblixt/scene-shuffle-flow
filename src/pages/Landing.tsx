@@ -98,8 +98,8 @@ const Landing = () => {
       answer: "Absolutely! ClipMixPRO exports standard MP4 and WebM files that work with any video editor. Use it as a preprocessing step to create unique base content, then add your usual effects, transitions, and branding. Many creators use it to quickly generate multiple variations from one source video."
     },
     {
-      question: "Is the free trial really free? What's the catch?",
-      answer: "The free trial is completely free with no hidden fees or credit card required. You get full access to all features including AI scene detection, smart shuffling, HD exports, and up to 3 videos per upload. The only limitation is the number of exports - after that, you'll love the results so much you'll want to upgrade anyway!"
+      question: "Can I try the app before subscribing?",
+      answer: "Yes. You can use all features in the app (upload, analyze, shuffle, preview). Exporting videos requires a subscription."
     }
   ];
 
@@ -132,7 +132,7 @@ const Landing = () => {
                 </Button>
               )}
               <Button onClick={() => navigate('/app')} className="bg-gradient-primary hover:opacity-90">
-                Try Free
+                Get Started
               </Button>
             </div>
           </div>
@@ -151,9 +151,9 @@ const Landing = () => {
               Faceless-YouTube creators spend most of their day cutting, splitting, and shuffling footage just to stay compliant. ClipMixPRO does it for you. Just upload your clips and let our AI work its magic.
             </p>
             
-            <div className="inline-flex items-center gap-2 bg-green-500/10 text-green-400 px-4 py-2 rounded-full border border-green-500/20 mb-8">
+            <div className="inline-flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-2 rounded-full border border-blue-500/20 mb-8">
               <CheckCircle className="w-4 h-4" />
-              <span className="text-sm font-medium">Free Trial • No Credit Card Required</span>
+              <span className="text-sm font-medium">Try the app free • Export requires subscription</span>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
@@ -162,7 +162,7 @@ const Landing = () => {
                 className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
                 onClick={() => navigate('/app')}
               >
-                Start Free Trial
+                Open App
               </Button>
               <Button 
                 size="lg" 

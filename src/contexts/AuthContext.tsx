@@ -32,6 +32,9 @@ export const useAuth = () => {
   return context;
 };
 
+// Complimentary premium accounts — treated identically to Stripe subscribers
+const COMPLIMENTARY_PREMIUM_EMAILS = ['pptskolan@gmail.com'];
+
 const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 const TEST_USER = {
   email: 'admin',
@@ -175,19 +178,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setExportCount(0);
       setTrialStatus('active');
       setSubscriptionStatus('none');
-      setRemainingExports(3);
+      setRemainingExports(0);
       setSubscriptionTier(null);
       setSubscriptionEnd(null);
       setLoading(false);
       return;
     }
 
-    // Set immediate trial defaults to unblock UI
+    // Complimentary premium accounts — grant full access immediately
+    if (COMPLIMENTARY_PREMIUM_EMAILS.includes(currentSession.user.email.toLowerCase())) {
+      console.log('[AUTH] Complimentary premium account detected:', currentSession.user.email);
+      setSubscribed(true);
+      setExportCount(-1);
+      setTrialStatus('converted');
+      setSubscriptionStatus('active');
+      setRemainingExports(-1);
+      setSubscriptionTier('Premium');
+      setSubscriptionEnd(null);
+      setLoading(false);
+      return;
+    }
+
+    // Set immediate defaults to unblock UI
     setSubscribed(false);
     setExportCount(0);
     setTrialStatus('active');
     setSubscriptionStatus('none');
-    setRemainingExports(3);
+    setRemainingExports(0);
     setSubscriptionTier(null);
     setSubscriptionEnd(null);
     setLoading(false);
@@ -196,7 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTimeout(async () => {
       try {
         console.log('[AUTH] Background: Checking database for user subscription status:', currentSession.user.email);
-        
+
         const { data: subscriber, error } = await supabase
           .from("subscribers")
           .select("*")
@@ -205,9 +222,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (subscriber && !error) {
           console.log('[AUTH] Background: Found subscriber data:', subscriber);
-          const usedExports = subscriber.free_exports_used || 0;
           const isSubscribed = subscriber.subscribed || false;
-          
+
           if (isSubscribed) {
             // Premium user - update to premium status
             console.log('[AUTH] Background: User is premium subscriber');
@@ -219,13 +235,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSubscriptionTier('Premium');
             setSubscriptionEnd(subscriber.subscription_end);
           } else {
-            // Free trial user - update with actual usage
-            console.log('[AUTH] Background: User is on free trial with', usedExports, 'exports used');
+            // Not subscribed - keep defaults; no trial logic
+            console.log('[AUTH] Background: User is not subscribed');
             setSubscribed(false);
-            setExportCount(usedExports);
-            setTrialStatus(usedExports >= 3 ? 'expired' : 'active');
+            setExportCount(0);
+            setTrialStatus('active');
             setSubscriptionStatus('none');
-            setRemainingExports(Math.max(0, 3 - usedExports));
+            setRemainingExports(0);
             setSubscriptionTier(null);
             setSubscriptionEnd(null);
           }

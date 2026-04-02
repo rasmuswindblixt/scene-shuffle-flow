@@ -50,36 +50,17 @@ serve(async (req) => {
     
     if (customers.data.length === 0) {
       logStep("No customer found, updating unsubscribed state");
-
-      // Get current profile data
-      const { data: existingProfile } = await supabaseClient
-        .from("profiles")
-        .select("export_count, trial_status, trial_started_at")
-        .eq("id", user.id)
-        .single();
-
-      const exportCount = existingProfile?.export_count || 0;
-      const trialStatus = existingProfile?.trial_status || 'active';
-      const trialStartedAt = existingProfile?.trial_started_at || new Date().toISOString();
-
       // Update profile with no subscription status
       await supabaseClient.from("profiles").upsert({
         id: user.id,
         email: user.email,
         subscription_status: 'none',
-        export_count: exportCount,
-        trial_status: trialStatus,
-        trial_started_at: trialStartedAt,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' });
 
-      const remainingExports = Math.max(0, 3 - exportCount);
       return new Response(JSON.stringify({ 
-        subscribed: false, 
-        export_count: exportCount,
-        trial_status: trialStatus,
-        subscription_status: 'none',
-        remaining_exports: remainingExports
+        subscribed: false,
+        subscription_status: 'none'
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -89,16 +70,12 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    // Get current profile data first
+    // Get current profile data first (if needed for future use)
     const { data: currentProfile } = await supabaseClient
       .from("profiles")
       .select("*")
       .eq("id", user.id)
       .single();
-
-    const exportCount = currentProfile?.export_count || 0;
-    const trialStatus = currentProfile?.trial_status || 'active';
-    const trialStartedAt = currentProfile?.trial_started_at || new Date().toISOString();
     
     // Check for active AND recently cancelled subscriptions
     const subscriptions = await stripe.subscriptions.list({
@@ -111,7 +88,6 @@ serve(async (req) => {
     let subscriptionTier = "Premium"; // Default tier for active subscriptions
     let subscriptionEnd: string | null = null;
     let shouldUpdateSubscription = false;
-    let newTrialStatus = trialStatus;
 
     // Check for active subscriptions first
     const activeSubscriptions = subscriptions.data.filter(sub => sub.status === "active");
@@ -120,7 +96,6 @@ serve(async (req) => {
       const subscription = activeSubscriptions[0];
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       subscriptionTier = "Premium";
-      newTrialStatus = 'converted'; // Mark trial as converted when subscription is active
       shouldUpdateSubscription = true;
       logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
     } else {
@@ -136,7 +111,6 @@ serve(async (req) => {
         const subscription = recentSubscriptions[0];
         subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
         subscriptionTier = "Premium";
-        newTrialStatus = 'converted'; // Keep as converted for cancelled but still valid subscriptions
         shouldUpdateSubscription = true;
         logStep("Cancelled subscription still valid", { subscriptionId: subscription.id, endDate: subscriptionEnd });
       } else {
@@ -146,17 +120,12 @@ serve(async (req) => {
           hasActiveSub = true;
           subscriptionTier = "Premium";
           subscriptionEnd = null; // Will be updated if we find active subscription
-          newTrialStatus = 'converted';
           logStep("Using existing active subscription from profile");
         } else {
           // No active subscription found
           hasActiveSub = false;
           subscriptionTier = null;
           subscriptionEnd = null;
-          // Don't change trial status if user had a subscription before
-          if (currentProfile?.subscription_status === 'none') {
-            newTrialStatus = exportCount >= 3 ? 'expired' : 'active';
-          }
           shouldUpdateSubscription = true;
           logStep("No active subscription - setting to inactive");
         }
@@ -168,30 +137,20 @@ serve(async (req) => {
       id: user.id,
       email: user.email,
       subscription_status: hasActiveSub ? 'active' : 'none',
-      export_count: exportCount,
-      trial_status: newTrialStatus,
-      trial_started_at: trialStartedAt,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'id' });
-
-    const remainingExports = hasActiveSub ? -1 : Math.max(0, 3 - exportCount);
 
     logStep("Updated database with subscription info", { 
       subscribed: hasActiveSub, 
       subscriptionTier, 
-      exportCount,
-      trialStatus: newTrialStatus,
-      remainingExports
+      subscription_status: hasActiveSub ? 'active' : 'none'
     });
     
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
       subscription_tier: hasActiveSub ? subscriptionTier : null,
       subscription_end: subscriptionEnd,
-      export_count: exportCount,
-      trial_status: newTrialStatus,
       subscription_status: hasActiveSub ? 'active' : 'none',
-      remaining_exports: remainingExports
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

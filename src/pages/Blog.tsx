@@ -91,7 +91,7 @@ export default function Blog() {
               <Link to="/#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</Link>
               <Link to="/blog" className="text-foreground font-medium">Blog</Link>
               <Link to="/app">
-                <Button className="bg-gradient-primary hover:opacity-90">Try Free</Button>
+                <Button className="bg-gradient-primary hover:opacity-90">Get Started</Button>
               </Link>
             </nav>
           </div>
@@ -120,7 +120,7 @@ export default function Blog() {
                   size="lg" 
                   className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
                 >
-                  Start Free Trial
+                  Open App
                 </Button>
               </Link>
               <Button 
@@ -223,7 +223,7 @@ export default function Blog() {
                   size="lg" 
                   className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
                 >
-                  Start Free Trial
+                  Open App
                 </Button>
               </Link>
               <Link to="/">

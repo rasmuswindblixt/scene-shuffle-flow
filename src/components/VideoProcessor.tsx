@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { Shuffle, Download, Play, Square, Film, CheckSquare, Square as SquareIcon, AlertCircle, FileVideo } from "lucide-react";
 import SceneDetector from "@/components/SceneDetector";
 import VideoPreview, { VideoPreviewRef } from "@/components/VideoPreview";
-import ExportLimitDialog from "@/components/ExportLimitDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Scene } from "@/types/scene";
@@ -23,7 +22,7 @@ interface VideoProcessorProps {
 }
 
 const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps) => {
-  const { subscribed, exportCount, trialStatus, remainingExports, updateExportCount, user, session } = useAuth();
+  const { subscribed, user, session } = useAuth();
   const videoPreviewRef = useRef<VideoPreviewRef>(null);
   
   // For now, work with first video while building multi-video support
@@ -43,7 +42,7 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
   const [originalVideoDuration, setOriginalVideoDuration] = useState<number>(0);
   const [maxVideoDuration, setMaxVideoDuration] = useState<number>(0);
   const [exportFormat, setExportFormat] = useState<'mp4' | 'webm'>('mp4');
-  const [showExportLimitDialog, setShowExportLimitDialog] = useState(false);
+  // Trial/export limit dialog removed – subscription required for export
 
   // Check supported formats on component mount
   useEffect(() => {
@@ -439,86 +438,13 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
     toast.success(`${selectedScenes.length} selected scenes reshuffled!`);
   };
 
-  const validateAndTrackExport = async (user: any) => {
-    // Check if user has active subscription
+  const ensureSubscribedForExport = (): boolean => {
     if (subscribed) {
       toast.success("Export started!");
       return true;
     }
-
-    // Check trial status and remaining exports
-    if (trialStatus === 'expired' || remainingExports <= 0) {
-      track('trial_export_blocked', { 
-        export_count: exportCount, 
-        trial_status: trialStatus,
-        remaining_exports: remainingExports 
-      });
-      setShowExportLimitDialog(true);
-      return false;
-    }
-
-    try {
-      console.log('[EXPORT] Updating export count in database and local state');
-      
-      // Update local export count first
-      const newCount = exportCount + 1;
-      const newTrialStatus = newCount >= 3 ? 'expired' : 'active';
-      const remaining = Math.max(0, 3 - newCount);
-      
-      // Update database directly (fallback to old subscribers table for now)
-      if (user?.email) {
-        console.log('[EXPORT] Updating database for:', user.email);
-        
-        // Try to update the old subscribers table
-        const { error: updateError } = await supabase
-          .from("subscribers")
-          .upsert({
-            email: user.email,
-            user_id: user.id,
-            subscribed: false,
-            free_exports_used: newCount,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'email' });
-
-        if (updateError) {
-          console.error('[EXPORT] Error updating database:', updateError);
-          // Continue anyway - don't block the export for database issues
-        } else {
-          console.log('[EXPORT] Database updated successfully');
-        }
-      }
-      
-      // Update local state immediately
-      updateExportCount(newCount);
-      
-      // Force immediate state sync by also updating local component state if needed
-      console.log('[EXPORT] Local state updated - newCount:', newCount, 'remaining:', remaining);
-      
-      // Track trial export milestone
-      if (newCount === 1) {
-        track('trial_export_1', { trial_status: newTrialStatus });
-      } else if (newCount === 2) {
-        track('trial_export_2', { trial_status: newTrialStatus });
-      } else if (newCount === 3) {
-        track('trial_export_3_last', { trial_status: newTrialStatus });
-      }
-      
-      // Show appropriate success message
-      if (remaining > 0) {
-        toast.success(`Export started! ${remaining} free export${remaining === 1 ? '' : 's'} remaining.`);
-      } else if (remaining === 0) {
-        toast.success("Export started! This is your last free export. Subscribe for unlimited exports.");
-      } else {
-        toast.success("Export started!");
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('[EXPORT] Error in export tracking:', error);
-      // Don't block export for tracking errors
-      toast.success("Export started!");
-      return true;
-    }
+    toast.error("Subscribe to export videos. You can try all features before subscribing.");
+    return false;
   };
 
   const exportVideo = async () => {
@@ -541,10 +467,10 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
       return;
     }
 
-    // Validate trial status and track export before starting
-    const canExport = await validateAndTrackExport(user);
+    // Require active subscription for export
+    const canExport = ensureSubscribedForExport();
     if (!canExport) {
-      return; // Export blocked due to trial limit
+      return; // Export blocked due to missing subscription
     }
 
     setShowExportDialog(true);
@@ -1293,13 +1219,7 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
         </DialogContent>
       </Dialog>
 
-      {/* Export Limit Dialog */}
-      <ExportLimitDialog
-        open={showExportLimitDialog}
-        onOpenChange={setShowExportLimitDialog}
-        exportCount={exportCount}
-        trialStatus={trialStatus}
-      />
+      {/* Export limit dialog removed */}
               </div>
     </div>
   );
