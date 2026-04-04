@@ -26,7 +26,6 @@ const Account = () => {
 
   // New features data
   const newFeatures = [
-    // Removed: Free Trial System feature (deprecated)
     {
       id: 2,
       title: "Video Format Selection",

@@ -96,10 +96,6 @@ const Landing = () => {
     {
       question: "Will this work with my existing video editing workflow?",
       answer: "Absolutely! ClipMixPRO exports standard MP4 and WebM files that work with any video editor. Use it as a preprocessing step to create unique base content, then add your usual effects, transitions, and branding. Many creators use it to quickly generate multiple variations from one source video."
-    },
-    {
-      question: "Can I try the app before subscribing?",
-      answer: "Yes. You can use all features in the app (upload, analyze, shuffle, preview). Exporting videos requires a subscription."
     }
   ];
 

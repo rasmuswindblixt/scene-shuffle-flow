@@ -42,7 +42,6 @@ const VideoProcessor = ({ videoFiles, videoUrls, onReset }: VideoProcessorProps)
   const [originalVideoDuration, setOriginalVideoDuration] = useState<number>(0);
   const [maxVideoDuration, setMaxVideoDuration] = useState<number>(0);
   const [exportFormat, setExportFormat] = useState<'mp4' | 'webm'>('mp4');
-  // Trial/export limit dialog removed – subscription required for export
 
   // Check supported formats on component mount
   useEffect(() => {

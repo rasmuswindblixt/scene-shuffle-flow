@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { HelpCircle } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
-// Removed trial banner as trial feature is deprecated
 import ContactForm from "@/components/ContactForm";
 
 const VideoApp = () => {

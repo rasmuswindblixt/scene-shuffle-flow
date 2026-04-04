@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Crown, CheckCircle2 } from 'lucide-react';
 
 const SubscriptionManager = () => {
-  const { user, session, subscribed, freeExportsUsed, subscriptionTier, subscriptionEnd, checkSubscription, loading } = useAuth();
+  const { user, session, subscribed, subscriptionTier, subscriptionEnd, checkSubscription, loading } = useAuth();
   const [loadingButton, setLoadingButton] = useState(false);
   const { toast } = useToast();
 
@@ -26,7 +26,7 @@ const SubscriptionManager = () => {
 
   const handleSubscribe = async () => {
     if (!session) return;
-    
+
     setLoadingButton(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
@@ -55,7 +55,7 @@ const SubscriptionManager = () => {
 
   const handleManageSubscription = async () => {
     if (!session) return;
-    
+
     setLoadingButton(true);
     try {
       const { data, error } = await supabase.functions.invoke('customer-portal', {
@@ -108,18 +108,18 @@ const SubscriptionManager = () => {
                 {subscriptionTier} Plan
               </Badge>
             </div>
-            
+
             {subscriptionEnd && (
               <p className="text-sm text-muted-foreground">
                 Renews on {formatDate(subscriptionEnd)}
               </p>
             )}
-            
+
             <p className="text-sm text-green-600 font-medium">
-              ✓ Unlimited exports
+              Unlimited exports
             </p>
-            
-            <Button 
+
+            <Button
               onClick={handleManageSubscription}
               disabled={loadingButton}
               variant="outline"
@@ -135,40 +135,27 @@ const SubscriptionManager = () => {
                 Free Plan
               </p>
               <p className="text-sm text-muted-foreground mb-3">
-                You have {Math.max(0, 1 - freeExportsUsed)} free exports remaining
+                Subscribe to unlock unlimited exports
               </p>
-              <div className="bg-muted rounded-lg p-3 mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium">Free Exports</span>
-                  <span className="text-sm font-bold">{Math.min(1, freeExportsUsed)}/1</span>
-                </div>
-                <div className="w-full bg-background rounded-full h-2">
-                  <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-300" 
-                    style={{ width: `${(Math.min(1, freeExportsUsed) / 1) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
             </div>
-            
+
             <div className="border rounded-lg p-4 bg-gradient-to-br from-purple-50 to-blue-50">
               <h4 className="font-semibold text-lg mb-2">Premium Plan</h4>
               <div className="mb-1">
                 <p className="text-sm line-through text-muted-foreground">$19.95/month</p>
                 <p className="text-2xl font-bold text-green-600">$12.95<span className="text-sm font-normal text-foreground">/month</span></p>
-                <p className="text-xs text-orange-600 font-medium">🔥 Limited Time Offer</p>
               </div>
               <ul className="text-sm space-y-1 mb-3">
-                <li>✓ Unlimited video uploads</li>
-                <li>✓ AI-powered scene detection</li>
-                <li>✓ Smart duration filtering</li>
-                <li>✓ Intelligent scene shuffling</li>
-                <li>✓ HD video export</li>
-                <li>✓ Priority support</li>
+                <li>Unlimited video uploads</li>
+                <li>AI-powered scene detection</li>
+                <li>Smart duration filtering</li>
+                <li>Intelligent scene shuffling</li>
+                <li>HD video export</li>
+                <li>Priority support</li>
               </ul>
             </div>
-            
-            <Button 
+
+            <Button
               onClick={handleSubscribe}
               disabled={loadingButton}
               variant="hero"
@@ -178,8 +165,8 @@ const SubscriptionManager = () => {
             </Button>
           </div>
         )}
-        
-        <Button 
+
+        <Button
           onClick={() => checkSubscription()}
           variant="ghost"
           size="sm"

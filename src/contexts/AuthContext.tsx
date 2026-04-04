@@ -6,10 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   subscribed: boolean;
-  exportCount: number;
-  trialStatus: 'active' | 'expired' | 'converted';
   subscriptionStatus: 'none' | 'active' | 'cancelled' | 'past_due';
-  remainingExports: number;
   subscriptionTier: string | null;
   subscriptionEnd: string | null;
   loading: boolean;
@@ -17,9 +14,6 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   checkSubscription: (sessionParam?: Session | null) => Promise<void>;
-  checkSubscriptionDirect: (sessionParam?: Session | null) => Promise<void>;
-  updateExportCount: (count: number) => void;
-  refreshTrialStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -51,38 +45,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Check localStorage for test users on initialization
   const initialTestUser = isDev && typeof window !== 'undefined' && window.localStorage.getItem(TEST_USER_KEY) === '1';
   const initialTestUser2 = isDev && typeof window !== 'undefined' && window.localStorage.getItem(TEST_USER_2_KEY) === '1';
-  
-  // Determine initial user and subscription status
+
   const getInitialUser = () => {
     if (initialTestUser) return TEST_USER as any;
     if (initialTestUser2) return TEST_USER_2 as any;
     return null;
   };
-  
+
   const getInitialSubscription = () => {
-    if (initialTestUser) return true; // admin is premium
-    if (initialTestUser2) return true; // admin_2 is now also premium (FULL ACCESS)
+    if (initialTestUser || initialTestUser2) return true;
     return false;
   };
-  
+
   const getInitialTier = () => {
-    if (initialTestUser) return 'premium'; // admin is premium
-    if (initialTestUser2) return 'premium'; // admin_2 is now also premium (FULL ACCESS)
+    if (initialTestUser || initialTestUser2) return 'premium';
     return null;
   };
 
   const [user, setUser] = useState<User | null>(getInitialUser());
   const [session, setSession] = useState<Session | null>(null);
   const [subscribed, setSubscribed] = useState(getInitialSubscription());
-  const [exportCount, setExportCount] = useState(0);
-  const [trialStatus, setTrialStatus] = useState<'active' | 'expired' | 'converted'>('active');
-  const [subscriptionStatus, setSubscriptionStatus] = useState<'none' | 'active' | 'cancelled' | 'past_due'>('none');
-  const [remainingExports, setRemainingExports] = useState(3);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'none' | 'active' | 'cancelled' | 'past_due'>(
+    getInitialSubscription() ? 'active' : 'none'
+  );
   const [subscriptionTier, setSubscriptionTier] = useState<string | null>(getInitialTier());
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [authListenerActive, setAuthListenerActive] = useState(true);
   const [permanentlyInitialized, setPermanentlyInitialized] = useState(false);
 
   // Priority effect: Handle test users if flags are set
@@ -90,52 +79,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isDev && typeof window !== 'undefined') {
       const testUser1Active = window.localStorage.getItem(TEST_USER_KEY) === '1';
       const testUser2Active = window.localStorage.getItem(TEST_USER_2_KEY) === '1';
-      
+
       if (testUser1Active) {
         setUser(TEST_USER as any);
         setSubscribed(true);
         setSubscriptionTier('premium');
-        setExportCount(0);
-        setTrialStatus('converted');
         setSubscriptionStatus('active');
-        setRemainingExports(-1); // Unlimited for paid users
         setSession(null);
         setLoading(false);
       } else if (testUser2Active) {
         setUser(TEST_USER_2 as any);
-        setSubscribed(true); // FULL ACCESS - admin_2 now has premium subscription
-        setSubscriptionTier('premium'); // FULL ACCESS - admin_2 now has premium tier
-        setExportCount(0);
-        setTrialStatus('converted');
+        setSubscribed(true);
+        setSubscriptionTier('premium');
         setSubscriptionStatus('active');
-        setRemainingExports(-1); // Unlimited for paid users
         setSession(null);
         setLoading(false);
       }
     }
   }, []);
 
+  const setPremiumState = (end?: string | null) => {
+    setSubscribed(true);
+    setSubscriptionStatus('active');
+    setSubscriptionTier('Premium');
+    setSubscriptionEnd(end ?? null);
+  };
+
+  const setFreeState = () => {
+    setSubscribed(false);
+    setSubscriptionStatus('none');
+    setSubscriptionTier(null);
+    setSubscriptionEnd(null);
+  };
+
   const checkSubscription = async (sessionParam?: Session | null, retryCount = 0) => {
-    console.log('[AUTH] checkSubscription called, retry count:', retryCount, 'initialized:', isInitialized);
-    
-    // Skip if user is permanently initialized (prevents tab switch calls)
+    console.log('[AUTH] checkSubscription called, retry count:', retryCount);
+
     if (permanentlyInitialized) {
       console.log('[AUTH] User permanently initialized, skipping subscription check');
       return;
     }
-    
+
     // Skip if any test user is active
-    if (isDev && typeof window !== 'undefined' && 
-        (window.localStorage.getItem(TEST_USER_KEY) === '1' || 
+    if (isDev && typeof window !== 'undefined' &&
+        (window.localStorage.getItem(TEST_USER_KEY) === '1' ||
          window.localStorage.getItem(TEST_USER_2_KEY) === '1')) {
       console.log('[AUTH] Skipping subscription check - test user active');
       return;
     }
-    
-    // Get current session directly from Supabase instead of relying on state
+
     let currentSession = sessionParam;
     if (!currentSession) {
-      console.log('[AUTH] No session parameter, getting fresh session from Supabase...');
       const { data: { session: freshSession }, error } = await supabase.auth.getSession();
       if (error) {
         console.error('[AUTH] Error getting fresh session:', error);
@@ -143,12 +137,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       currentSession = freshSession;
     }
-    
-    console.log('[AUTH] Using session exists:', !!currentSession);
-    console.log('[AUTH] Current user email:', currentSession?.user?.email);
-    
+
     if (!currentSession?.user?.email) {
-      // If no session and retry count is less than 3, wait and retry
       if (retryCount < 3) {
         console.log('[AUTH] No session available, will retry in 1000ms...');
         setTimeout(() => {
@@ -159,91 +149,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('[AUTH] No session or user email available after retries');
       return;
     }
-    
-    // Temporarily bypass edge function and use direct fallback
-    console.log('[AUTH] Bypassing edge function, using direct fallback for now');
-    await checkSubscriptionDirect(currentSession);
-    
-    // Ensure loading is set to false after subscription check
-    setLoading(false);
-  };
-
-  const checkSubscriptionDirect = async (sessionParam?: Session | null) => {
-    console.log('[AUTH] Setting immediate defaults to unblock UI, loading subscription data in background');
-    
-    const currentSession = sessionParam || session;
-    if (!currentSession?.user?.email) {
-      console.log('[AUTH] No session in fallback, setting defaults');
-      setSubscribed(false);
-      setExportCount(0);
-      setTrialStatus('active');
-      setSubscriptionStatus('none');
-      setRemainingExports(0);
-      setSubscriptionTier(null);
-      setSubscriptionEnd(null);
-      setLoading(false);
-      return;
-    }
 
     // Complimentary premium accounts — grant full access immediately
     if (COMPLIMENTARY_PREMIUM_EMAILS.includes(currentSession.user.email.toLowerCase())) {
       console.log('[AUTH] Complimentary premium account detected:', currentSession.user.email);
-      setSubscribed(true);
-      setExportCount(-1);
-      setTrialStatus('converted');
-      setSubscriptionStatus('active');
-      setRemainingExports(-1);
-      setSubscriptionTier('Premium');
-      setSubscriptionEnd(null);
+      setPremiumState();
       setLoading(false);
       return;
     }
 
-    // Set immediate defaults to unblock UI
-    setSubscribed(false);
-    setExportCount(0);
-    setTrialStatus('active');
-    setSubscriptionStatus('none');
-    setRemainingExports(0);
-    setSubscriptionTier(null);
-    setSubscriptionEnd(null);
+    // Set defaults to unblock UI
+    setFreeState();
     setLoading(false);
 
     // Load real subscription data in background (non-blocking)
+    const email = currentSession.user.email;
     setTimeout(async () => {
       try {
-        console.log('[AUTH] Background: Checking database for user subscription status:', currentSession.user.email);
+        console.log('[AUTH] Background: Checking database for subscription:', email);
 
         const { data: subscriber, error } = await supabase
           .from("subscribers")
           .select("*")
-          .eq("email", currentSession.user.email)
+          .eq("email", email)
           .maybeSingle();
 
         if (subscriber && !error) {
-          console.log('[AUTH] Background: Found subscriber data:', subscriber);
-          const isSubscribed = subscriber.subscribed || false;
-
-          if (isSubscribed) {
-            // Premium user - update to premium status
+          if (subscriber.subscribed) {
             console.log('[AUTH] Background: User is premium subscriber');
-            setSubscribed(true);
-            setExportCount(-1); // Unlimited for premium
-            setTrialStatus('converted');
-            setSubscriptionStatus('active');
-            setRemainingExports(-1); // Unlimited
-            setSubscriptionTier('Premium');
-            setSubscriptionEnd(subscriber.subscription_end);
+            setPremiumState(subscriber.subscription_end);
           } else {
-            // Not subscribed - keep defaults; no trial logic
             console.log('[AUTH] Background: User is not subscribed');
-            setSubscribed(false);
-            setExportCount(0);
-            setTrialStatus('active');
-            setSubscriptionStatus('none');
-            setRemainingExports(0);
-            setSubscriptionTier(null);
-            setSubscriptionEnd(null);
+            setFreeState();
           }
         } else {
           console.log('[AUTH] Background: No subscriber data found or error:', error);
@@ -254,55 +191,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 100);
   };
 
-  const updateExportCount = (count: number) => {
-    console.log('[AUTH] updateExportCount called with count:', count);
-    console.log('[AUTH] Current exportCount before update:', exportCount);
-    setExportCount(count);
-    
-    // Update remaining exports and trial status
-    const remaining = subscribed ? -1 : Math.max(0, 3 - count);
-    setRemainingExports(remaining);
-    
-    // Update trial status if needed
-    if (!subscribed && count >= 3 && trialStatus === 'active') {
-      console.log('[AUTH] Setting trial status to expired after reaching limit');
-      setTrialStatus('expired');
-    }
-    
-    console.log('[AUTH] Updated exportCount:', count, 'remainingExports:', remaining, 'trialStatus:', count >= 3 ? 'expired' : trialStatus);
-  };
-
-  const refreshTrialStatus = async () => {
-    if (session?.user) {
-      await checkSubscription(session);
-    }
-  };
-
-  // Throttling is now handled in the auth state listener above
-
   useEffect(() => {
     setLoading(true);
     // Skip Supabase session if any test user is active
-    if (isDev && typeof window !== 'undefined' && 
-        (window.localStorage.getItem(TEST_USER_KEY) === '1' || 
+    if (isDev && typeof window !== 'undefined' &&
+        (window.localStorage.getItem(TEST_USER_KEY) === '1' ||
          window.localStorage.getItem(TEST_USER_2_KEY) === '1')) {
       setLoading(false);
       setIsInitialized(true);
       setPermanentlyInitialized(true);
-      setAuthListenerActive(false);
       return;
     }
-    
+
     console.log('[AUTH] useEffect running. Initializing AuthContext.');
-    
-    // Set up auth state listener
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('[AUTH] Auth state changed:', event, 'session exists:', !!session);
-        
+
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           console.log('[AUTH] User logged in, checking subscription...');
           setLoading(true);
@@ -316,27 +225,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else {
           console.log('[AUTH] No user session, resetting state');
-          setSubscribed(false);
-          setExportCount(0);
-          setTrialStatus('active');
-          setSubscriptionStatus('none');
-          setRemainingExports(3);
-          setSubscriptionTier(null);
-          setSubscriptionEnd(null);
+          setFreeState();
           setLoading(false);
           setIsInitialized(true);
         }
       }
     );
 
-    // Check for existing session on mount
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       console.log('[AUTH] Initial session check:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
-        console.log('[AUTH] Initial session has user, checking subscription...');
         setLoading(true);
         try {
           await checkSubscription(session);
@@ -347,7 +248,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsInitialized(true);
         }
       } else {
-        console.log('[AUTH] No initial session found');
         setLoading(false);
         setIsInitialized(true);
       }
@@ -358,32 +258,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Note: Subscription checking is now handled in the auth state listener above
-
   const signIn = async (email: string, password: string) => {
     if (isDev && email === 'admin' && password === 'eqsZvy6d89!') {
       setUser(TEST_USER as any);
       setSubscribed(true);
       setSubscriptionTier('premium');
-      setExportCount(0);
-      setTrialStatus('converted');
       setSubscriptionStatus('active');
-      setRemainingExports(-1);
       setSession(null);
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(TEST_USER_KEY, '1');
       }
       return { error: null };
     }
-    
+
     if (isDev && email === 'admin_2' && password === 'eqsZvy6d89!') {
       setUser(TEST_USER_2 as any);
-      setSubscribed(true); // FULL ACCESS - admin_2 now has premium subscription
-      setSubscriptionTier('premium'); // FULL ACCESS - admin_2 now has premium tier
-      setExportCount(0);
-      setTrialStatus('converted');
+      setSubscribed(true);
+      setSubscriptionTier('premium');
       setSubscriptionStatus('active');
-      setRemainingExports(-1);
       setSession(null);
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(TEST_USER_2_KEY, '1');
@@ -399,7 +291,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/app`;
-    
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -414,24 +306,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isDev && typeof window !== 'undefined') {
       const testUser1Active = window.localStorage.getItem(TEST_USER_KEY) === '1';
       const testUser2Active = window.localStorage.getItem(TEST_USER_2_KEY) === '1';
-      
+
       if (testUser1Active || testUser2Active) {
         window.localStorage.removeItem(TEST_USER_KEY);
         window.localStorage.removeItem(TEST_USER_2_KEY);
         setUser(null);
-        setSubscribed(false);
-        setSubscriptionTier(null);
-        setExportCount(0);
-        setTrialStatus('active');
-        setSubscriptionStatus('none');
-        setRemainingExports(3);
+        setFreeState();
         setSession(null);
         setIsInitialized(true);
         setLoading(false);
         return;
       }
     }
-    
+
     await supabase.auth.signOut();
   };
 
@@ -439,10 +326,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     session,
     subscribed,
-    exportCount,
-    trialStatus,
     subscriptionStatus,
-    remainingExports,
     subscriptionTier,
     subscriptionEnd,
     loading,
@@ -450,9 +334,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signOut,
     checkSubscription,
-    checkSubscriptionDirect,
-    updateExportCount,
-    refreshTrialStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
