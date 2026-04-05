@@ -185,7 +185,7 @@ const Auth = () => {
             <div className="text-xs text-center text-muted-foreground mt-2">
               <b>Dev mode:</b> Log in with <code>admin</code> / <code>eqsZvy6d89!</code> for premium test user.
               <br />
-              Or use <code>admin_2</code> / <code>eqsZvy6d89!</code> for free tier test user.
+              Or use <code>admin_2</code> / <code>eqsZvy6d89!</code> for another premium test user.
             </div>
           )}
           

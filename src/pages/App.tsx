@@ -143,66 +143,55 @@ const VideoApp = () => {
               </p>
             </div>
 
-            {/* Limited Time Offer Banner */}
-            <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-lg p-6 mb-8">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <span className="text-2xl">🔥</span>
-                <h3 className="text-xl font-bold text-orange-400">LIMITED TIME OFFER</h3>
-                <span className="text-2xl">🔥</span>
-              </div>
-              <p className="text-lg font-semibold mb-2">Get 50% OFF Your First Month!</p>
-              <p className="text-sm text-muted-foreground">Join now and pay only <span className="line-through">$12.95</span> <span className="text-green-400 font-bold">$6.47</span> for your first month</p>
-            </div>
-
             {/* Features Grid */}
             <div className="grid md:grid-cols-2 gap-6 mb-8">
               <Card className="bg-card/60 backdrop-blur border-primary/20 text-left">
                 <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold mb-4 text-green-400">✅ What You Get</h3>
+                  <h3 className="text-lg font-semibold mb-4 gradient-text">What You Get</h3>
                   <ul className="space-y-3">
                     <li className="flex items-center gap-3">
-                      <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
                       <span>Unlimited video processing</span>
                     </li>
                     <li className="flex items-center gap-3">
-                      <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
                       <span>Process videos up to 60 minutes</span>
                     </li>
                     <li className="flex items-center gap-3">
-                      <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
                       <span>Upload up to 3 videos at once</span>
                     </li>
                     <li className="flex items-center gap-3">
-                      <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
                       <span>HD/4K video export (MP4 & WebM)</span>
                     </li>
                     <li className="flex items-center gap-3">
-                      <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
                       <span>Advanced scene selection</span>
                     </li>
                     <li className="flex items-center gap-3">
-                      <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
                       <span>Priority processing speed</span>
                     </li>
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/60 backdrop-blur border-orange-500/20 text-left">
+              <Card className="bg-card/60 backdrop-blur border-primary/20 text-left">
                 <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold mb-4 text-orange-400">🚀 Success Metrics</h3>
+                  <h3 className="text-lg font-semibold mb-4 gradient-text">Why Creators Love It</h3>
                   <div className="space-y-4">
-                    <div className="bg-orange-500/10 rounded-lg p-4">
-                      <div className="text-2xl font-bold text-orange-400">95%</div>
-                      <div className="text-sm text-muted-foreground">Content approval rate</div>
+                    <div className="bg-primary/10 rounded-lg p-4">
+                      <div className="text-2xl font-bold text-primary">100%</div>
+                      <div className="text-sm text-muted-foreground">Copyright-safe with 3-6.9s clips</div>
                     </div>
-                    <div className="bg-blue-500/10 rounded-lg p-4">
-                      <div className="text-2xl font-bold text-blue-400">3x</div>
-                      <div className="text-sm text-muted-foreground">Faster content creation</div>
+                    <div className="bg-primary/10 rounded-lg p-4">
+                      <div className="text-2xl font-bold text-primary">3-8x</div>
+                      <div className="text-sm text-muted-foreground">More content in the same time</div>
                     </div>
-                    <div className="bg-green-500/10 rounded-lg p-4">
-                      <div className="text-2xl font-bold text-green-400">$1000+</div>
-                      <div className="text-sm text-muted-foreground">Average monthly savings</div>
+                    <div className="bg-primary/10 rounded-lg p-4">
+                      <div className="text-2xl font-bold text-green-400">$12.95</div>
+                      <div className="text-sm text-muted-foreground">per month, or $95/year (save 39%)</div>
                     </div>
                   </div>
                 </CardContent>
@@ -211,18 +200,16 @@ const VideoApp = () => {
 
             {/* CTA Section */}
             <div className="space-y-4">
-              <Button 
-                size="lg" 
-                className="w-full max-w-md mx-auto bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-4 px-8 text-lg shadow-lg"
-                onClick={() => navigate('/checkout')}
+              <Button
+                size="lg"
+                variant="hero"
+                className="w-full max-w-md mx-auto font-bold py-4 px-8 text-lg"
+                onClick={() => navigate('/onboarding')}
               >
-                🔥 Claim 50% OFF - Start Now ($6.47/month)
+                Get Started →
               </Button>
               <p className="text-sm text-muted-foreground">
-                Cancel anytime • No setup fees • Instant access
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Offer expires in 24 hours. Regular price $12.95/month after first month.
+                Cancel anytime · No setup fees · Instant access
               </p>
             </div>
           </div>

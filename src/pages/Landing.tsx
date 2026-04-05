@@ -127,7 +127,7 @@ const Landing = () => {
                   Log In
                 </Button>
               )}
-              <Button onClick={() => navigate('/app')} className="bg-gradient-primary hover:opacity-90">
+              <Button onClick={() => navigate('/onboarding')} className="bg-gradient-primary hover:opacity-90">
                 Get Started
               </Button>
             </div>
@@ -156,7 +156,7 @@ const Landing = () => {
               <Button 
                 size="lg" 
                 className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
-                onClick={() => navigate('/app')}
+                onClick={() => navigate('/onboarding')}
               >
                 Open App
               </Button>
@@ -434,7 +434,7 @@ const Landing = () => {
             <Button 
               size="lg" 
               className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary"
-              onClick={() => navigate('/app')}
+              onClick={() => navigate('/onboarding')}
             >
               Automate My Edit Now
             </Button>
@@ -510,7 +510,7 @@ const Landing = () => {
             <Button 
               size="lg" 
               className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-4 h-auto shadow-primary hover:shadow-xl transition-all duration-300"
-              onClick={() => navigate('/app')}
+              onClick={() => navigate('/onboarding')}
             >
               Start Your Success Story
             </Button>
@@ -536,10 +536,10 @@ const Landing = () => {
                   <div className="mb-2">
                     <div className="text-lg line-through text-muted-foreground">$39.95/month</div>
                     <div className="text-4xl font-bold gradient-text">$12.95/month</div>
-                    <div className="text-sm text-orange-600 font-medium">🔥 Limited Time Offer</div>
+                    <div className="text-sm text-primary font-medium">Early Adopter Price</div>
                   </div>
                   <p className="text-muted-foreground mb-2">Unlimited video processing</p>
-                  <p className="text-xs text-orange-600 font-medium">⚡ Early users get forever unlimited exports - price increases soon!</p>
+                  <p className="text-xs text-primary font-medium">Lock in this price — it increases soon!</p>
                 </div>
                 <ul className="text-left space-y-3 mb-8">
                   <li className="flex items-center"><CheckCircle className="w-5 h-5 text-primary mr-3" />Unlimited video exports</li>
@@ -554,7 +554,7 @@ const Landing = () => {
                 <Button 
                   size="lg" 
                   className="w-full bg-gradient-primary hover:opacity-90 shadow-primary"
-                  onClick={() => navigate('/app')}
+                  onClick={() => navigate('/onboarding')}
                 >
                   Get Started Free
                 </Button>

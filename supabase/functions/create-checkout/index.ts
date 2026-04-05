@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://cdn.skypack.dev/stripe@13.11.0";
-import { createClient } from "https://cdn.skypack.dev/@supabase/supabase-js@2.45.0";
+import Stripe from "https://esm.sh/stripe@13.11.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,7 +82,22 @@ serve(async (req) => {
       vercelUrl: Deno.env.get("VERCEL_URL")
     });
     
-    logStep("Creating checkout session", { origin });
+    // Parse plan from request body (defaults to 'monthly' for backwards compatibility)
+    let plan = 'monthly';
+    try {
+      const body = await req.json();
+      if (body?.plan === 'yearly' || body?.plan === 'monthly') {
+        plan = body.plan;
+      }
+    } catch {
+      // No body or invalid JSON — use default
+    }
+
+    const pricing = plan === 'yearly'
+      ? { unit_amount: 9500, interval: 'year' as const, name: 'ClipMixPRO Premium (Yearly)' }
+      : { unit_amount: 1295, interval: 'month' as const, name: 'ClipMixPRO Premium (Monthly)' };
+
+    logStep("Creating checkout session", { origin, plan, pricing });
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -91,17 +106,17 @@ serve(async (req) => {
         {
           price_data: {
             currency: "usd",
-            product_data: { name: "Video Splitter Premium" },
-            unit_amount: 1295, // $12.95 in cents
-            recurring: { interval: "month" },
+            product_data: { name: pricing.name },
+            unit_amount: pricing.unit_amount,
+            recurring: { interval: pricing.interval },
           },
           quantity: 1,
         },
       ],
       mode: "subscription",
       allow_promotion_codes: true,
-      success_url: `${origin}/app?success=true`,
-      cancel_url: `${origin}/app?canceled=true`,
+      success_url: `${origin}/onboarding?step=12`,
+      cancel_url: `${origin}/onboarding?step=11`,
     });
 
     logStep("Checkout session created successfully", { sessionId: session.id, url: session.url });
