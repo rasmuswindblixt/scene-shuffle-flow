@@ -147,10 +147,7 @@ const Landing = () => {
               Faceless-YouTube creators spend most of their day cutting, splitting, and shuffling footage just to stay compliant. ClipMixPRO does it for you. Just upload your clips and let our AI work its magic.
             </p>
             
-            <div className="inline-flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-2 rounded-full border border-blue-500/20 mb-8">
-              <CheckCircle className="w-4 h-4" />
-              <span className="text-sm font-medium">Try the app free • Export requires subscription</span>
-            </div>
+            <div className="mb-8" />
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
               <Button 
