@@ -3,35 +3,41 @@ import { Scene } from "@/types/scene";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import {
+  SCENE_DIFFERENCE_THRESHOLD, SCENE_DETECTION_BATCH_SIZE,
+  SCENE_MIN_DETECTION_DURATION, SCENE_FRAME_INTERVAL, SCENE_DETECTION_DELAY_MS,
+} from "@/lib/constants";
 
 interface SceneDetectorProps {
   videoUrl: string;
   onScenesDetected: (scenes: Scene[]) => void;
   isAnalyzing: boolean;
-  segmentLength: number;
-  frameInterval: number;
-  delayMs: number;
 }
 
-// Improved values for better scene detection
-const BATCH_SIZE = 60; // Process 1 minute at a time
-const DIFFERENCE_THRESHOLD = 0.15; // Lower threshold to catch more subtle changes
-const MIN_SCENE_DURATION = 0.5;
-const FRAME_INTERVAL = 0.5; // Check every 0.5 seconds for better detection
-const DELAY_MS = 25; // Reduced delay for faster processing
+const THUMBNAIL_WIDTH = 160;
+const THUMBNAIL_HEIGHT = 90;
 
 const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetectorProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const thumbnailCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [detectionProgress, setDetectionProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
 
+  // Reuse a single canvas for all thumbnail generation
+  const getThumbnailCanvas = () => {
+    if (!thumbnailCanvasRef.current) {
+      thumbnailCanvasRef.current = document.createElement('canvas');
+      thumbnailCanvasRef.current.width = THUMBNAIL_WIDTH;
+      thumbnailCanvasRef.current.height = THUMBNAIL_HEIGHT;
+    }
+    return thumbnailCanvasRef.current;
+  };
+
   const generateThumbnail = async (video: HTMLVideoElement, time: number): Promise<string> => {
     return new Promise((resolve) => {
-      const thumbnailCanvas = document.createElement('canvas');
+      const thumbnailCanvas = getThumbnailCanvas();
       const thumbnailCtx = thumbnailCanvas.getContext('2d', { willReadFrequently: true })!;
-      thumbnailCanvas.width = 160;
-      thumbnailCanvas.height = 90;
       
       // Add timeout for thumbnail generation
       const timeoutId = setTimeout(() => {
@@ -43,7 +49,7 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetecto
       const seekHandler = () => {
         clearTimeout(timeoutId);
         try {
-          thumbnailCtx.drawImage(video, 0, 0, thumbnailCanvas.width, thumbnailCanvas.height);
+          thumbnailCtx.drawImage(video, 0, 0, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
           const dataUrl = thumbnailCanvas.toDataURL('image/jpeg', 0.7);
           video.removeEventListener('seeked', seekHandler);
           resolve(dataUrl);
@@ -52,12 +58,12 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetecto
           resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
         }
       };
-      
+
       // Check if already at correct time
       if (Math.abs(video.currentTime - time) < 0.1) {
         clearTimeout(timeoutId);
         try {
-          thumbnailCtx.drawImage(video, 0, 0, thumbnailCanvas.width, thumbnailCanvas.height);
+          thumbnailCtx.drawImage(video, 0, 0, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
           const dataUrl = thumbnailCanvas.toDataURL('image/jpeg', 0.7);
           resolve(dataUrl);
         } catch (error) {
@@ -107,7 +113,7 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetecto
     let currentFrameData = lastFrameData;
     let sceneStart = lastSceneStart;
 
-    for (let time = startTime; time < endTime; time += FRAME_INTERVAL) {
+    for (let time = startTime; time < endTime; time += SCENE_FRAME_INTERVAL) {
       setCurrentTime(time);
       setDetectionProgress((time / video.duration) * 100);
 
@@ -151,11 +157,11 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetecto
       if (currentFrameData) {
         const difference = calculateFrameDifference(currentFrameData, newFrameData);
 
-        if (difference > DIFFERENCE_THRESHOLD) {
+        if (difference > SCENE_DIFFERENCE_THRESHOLD) {
           // Scene change detected
           const sceneDuration = time - sceneStart;
 
-          if (sceneDuration >= MIN_SCENE_DURATION) {
+          if (sceneDuration >= SCENE_MIN_DETECTION_DURATION) {
             const thumbnail = await generateThumbnail(video, sceneStart);
             
             scenes.push({
@@ -165,7 +171,7 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetecto
               duration: sceneDuration,
               difference,
               thumbnail,
-              segment: Math.floor(sceneStart / BATCH_SIZE)
+              segment: Math.floor(sceneStart / SCENE_DETECTION_BATCH_SIZE)
             });
           }
 
@@ -176,8 +182,8 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetecto
       currentFrameData = newFrameData;
 
       // Add delay to prevent blocking
-      if (DELAY_MS > 0) {
-        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      if (SCENE_DETECTION_DELAY_MS > 0) {
+        await new Promise(resolve => setTimeout(resolve, SCENE_DETECTION_DELAY_MS));
       }
     }
 
@@ -211,8 +217,8 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetecto
       console.log(`Starting scene detection for ${duration.toFixed(1)}s video`);
       
       // Process video in small batches
-      for (let startTime = 0; startTime < duration; startTime += BATCH_SIZE) {
-        const endTime = Math.min(startTime + BATCH_SIZE, duration);
+      for (let startTime = 0; startTime < duration; startTime += SCENE_DETECTION_BATCH_SIZE) {
+        const endTime = Math.min(startTime + SCENE_DETECTION_BATCH_SIZE, duration);
         
         const result = await processBatch(
           video,
@@ -228,15 +234,12 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetecto
         lastFrameData = result.lastFrameData;
         lastSceneStart = result.lastSceneStart;
 
-        // Clear some memory after each batch
-        if (lastFrameData) {
-          lastFrameData = null;
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
+        // Clear canvas between batches but preserve lastFrameData for cross-batch continuity
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
 
       // Add final scene
-      if (lastSceneStart < duration - MIN_SCENE_DURATION) {
+      if (lastSceneStart < duration - SCENE_MIN_DETECTION_DURATION) {
         const finalDuration = duration - lastSceneStart;
         const thumbnail = await generateThumbnail(video, lastSceneStart);
         
@@ -247,7 +250,7 @@ const SceneDetector = ({ videoUrl, onScenesDetected, isAnalyzing }: SceneDetecto
           duration: finalDuration,
           difference: 0.5,
           thumbnail,
-          segment: Math.floor(lastSceneStart / BATCH_SIZE)
+          segment: Math.floor(lastSceneStart / SCENE_DETECTION_BATCH_SIZE)
         });
       }
 

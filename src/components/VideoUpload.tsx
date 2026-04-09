@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useDropzone } from 'react-dropzone';
 import { Film, Upload, ArrowDown, Play, Youtube, Zap } from 'lucide-react';
 import YouTubeDownloader from './YouTubeDownloader';
+import { MAX_VIDEO_COUNT, MAX_VIDEO_SIZE_BYTES, MAX_VIDEO_DURATION_SECONDS } from '@/lib/constants';
 
 interface VideoUploadProps {
   onVideoUpload: (files: File[]) => void;
@@ -37,8 +38,8 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
 
   const handleYouTubeVideoDownloaded = (file: File) => {
     // Check if we would exceed the limit
-    if (uploadedFiles.length >= 3) {
-      toast.error("Maximum 3 videos allowed. Remove a video before downloading from YouTube.");
+    if (uploadedFiles.length >= MAX_VIDEO_COUNT) {
+      toast.error(`Maximum ${MAX_VIDEO_COUNT} videos allowed. Remove a video before downloading from YouTube.`);
       return;
     }
     
@@ -57,9 +58,9 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
     }
     
     // Check if we would exceed the limit
-    const availableSlots = 3 - uploadedFiles.length;
+    const availableSlots = MAX_VIDEO_COUNT - uploadedFiles.length;
     if (acceptedFiles.length > availableSlots) {
-      toast.error(`Maximum 3 videos allowed. You have ${availableSlots} slot${availableSlots !== 1 ? 's' : ''} remaining, but tried to add ${acceptedFiles.length} files.`);
+      toast.error(`Maximum ${MAX_VIDEO_COUNT} videos allowed. You have ${availableSlots} slot${availableSlots !== 1 ? 's' : ''} remaining, but tried to add ${acceptedFiles.length} files.`);
       return;
     }
     
@@ -82,40 +83,41 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
         continue;
       }
 
-      if (file.size > 5 * 1024 * 1024 * 1024) { // 5GB limit
-        toast.error(`${file.name} is too large (max 5GB)`);
+      if (file.size > MAX_VIDEO_SIZE_BYTES) {
+        toast.error(`${file.name} is too large (max ${MAX_VIDEO_SIZE_BYTES / (1024 * 1024 * 1024)}GB)`);
         continue;
       }
 
       // Check duration limit (60 minutes = 3600 seconds)
       const video = document.createElement('video');
-      video.src = URL.createObjectURL(file);
-      
+      const blobUrl = URL.createObjectURL(file);
+      video.src = blobUrl;
+
       try {
         await new Promise<void>((resolve, reject) => {
           video.onloadedmetadata = () => {
-            if (video.duration > 3600) {
-              toast.error(`${file.name} is too long (max 60 minutes)`);
-              URL.revokeObjectURL(video.src);
+            if (video.duration > MAX_VIDEO_DURATION_SECONDS) {
+              toast.error(`${file.name} is too long (max ${MAX_VIDEO_DURATION_SECONDS / 60} minutes)`);
               reject(new Error('Video too long'));
             } else {
-              URL.revokeObjectURL(video.src);
               resolve();
             }
           };
           video.onerror = (error) => {
             console.log(`Video validation error for ${file.name} (this is normal for invalid files):`, error);
             toast.error(`Error loading ${file.name}`);
-            URL.revokeObjectURL(video.src);
             reject(new Error('Video load error'));
           };
         });
-        
+
         validFiles.push(file);
         console.log('File validated:', file.name);
       } catch (error) {
         console.log('File validation failed:', file.name, error);
         // Error already shown in toast
+      } finally {
+        // Always revoke blob URL exactly once, regardless of success/failure
+        URL.revokeObjectURL(blobUrl);
       }
     }
     
@@ -166,7 +168,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
       'video/*': ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv']
     },
     multiple: true,
-    maxFiles: 3,
+    maxFiles: MAX_VIDEO_COUNT,
     disabled: isUploading,
     noClick: false,
     noKeyboard: false
@@ -180,7 +182,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
         <div className="text-center">
           <h2 className="text-3xl font-bold mb-4">Upload Your Videos</h2>
           <p className="text-muted-foreground mb-4">
-            Upload 1-3 videos to mix and shuffle their scenes together (max 60 minutes each)
+            Upload 1-{MAX_VIDEO_COUNT} videos to mix and shuffle their scenes together (max {MAX_VIDEO_DURATION_SECONDS / 60} minutes each)
           </p>
           
           {/* YouTube Downloader Feature - Temporarily Hidden */}
@@ -207,7 +209,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
         {false && showYouTubeDownloader && (
           <YouTubeDownloader 
             onVideoDownloaded={handleYouTubeVideoDownloaded}
-            disabled={isUploading || uploadedFiles.length >= 3}
+            disabled={isUploading || uploadedFiles.length >= MAX_VIDEO_COUNT}
           />
         )}
 
@@ -247,11 +249,11 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-primary">Drop your video{uploadedFiles.length === 0 ? 's' : ''} here</h3>
                   <p className="text-muted-foreground">
-                    Release to upload {uploadedFiles.length === 0 ? 'up to 3 videos' : 'your video file'}
+                    Release to upload {uploadedFiles.length === 0 ? `up to ${MAX_VIDEO_COUNT} videos` : 'your video file'}
                   </p>
                   {uploadedFiles.length > 0 && (
                     <p className="text-sm text-primary mt-2">
-                      {uploadedFiles.length}/3 videos uploaded
+                      {uploadedFiles.length}/{MAX_VIDEO_COUNT} videos uploaded
                     </p>
                   )}
                 </div>
@@ -283,7 +285,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
         {uploadedFiles.length > 0 && (
           <Card>
             <CardContent className="p-6">
-              <h3 className="font-semibold mb-4">Uploaded Videos ({uploadedFiles.length}/3)</h3>
+              <h3 className="font-semibold mb-4">Uploaded Videos ({uploadedFiles.length}/{MAX_VIDEO_COUNT})</h3>
               <div className="space-y-3">
                 {uploadedFiles.map((file, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
@@ -311,7 +313,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
               </div>
               
               <div className="mt-6 space-y-4">
-                {uploadedFiles.length < 3 && (
+                {uploadedFiles.length < MAX_VIDEO_COUNT && (
                   <p className="text-sm text-muted-foreground text-center">
                     {uploadedFiles.length === 1 
                       ? "Add more videos to mix them together for longer output" 
@@ -343,7 +345,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
                   </Button>
                 </div>
                 
-                {uploadedFiles.length === 3 && (
+                {uploadedFiles.length === MAX_VIDEO_COUNT && (
                   <p className="text-sm text-primary text-center font-medium">
                     <Film className="w-4 h-4 inline mr-1" />
                     Excellent! Three videos will be mixed together for maximum content variety

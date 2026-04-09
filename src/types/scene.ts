@@ -8,7 +8,4 @@ export interface Scene {
   thumbnail?: string;
   selected?: boolean;
   videoIndex?: number;
-  _fillRepeat?: number;
-  _fillPartial?: boolean;
-  _fillUsed?: boolean;
 } 
