@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import VideoUpload from "@/components/VideoUpload";
-import VideoProcessor from "@/components/VideoProcessor";
+import VideoProcessor from "@/components/video-processor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
