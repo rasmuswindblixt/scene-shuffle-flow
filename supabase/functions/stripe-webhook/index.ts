@@ -86,30 +86,70 @@ serve(async (req) => {
       }
       
       if (!subscriber) {
-        logStep("No subscriber found for customer", { customerId });
-        return new Response("No subscriber found", { 
-          status: 200, 
-          headers: corsHeaders 
-        });
+        // Fallback: look up by email via Stripe customer object
+        logStep("No subscriber found by stripe_customer_id, falling back to email lookup", { customerId });
+        const stripeCustomer = await stripe.customers.retrieve(customerId);
+        const customerEmail = (stripeCustomer as any).email as string | null;
+
+        if (!customerEmail) {
+          logStep("Stripe customer has no email, cannot resolve subscriber", { customerId });
+          return new Response("Customer email not found", { status: 200, headers: corsHeaders });
+        }
+
+        // Look up auth user to get user_id
+        const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+        if (authError) {
+          logStep("Error listing auth users", { error: authError.message });
+          return new Response("Auth lookup error", { status: 500, headers: corsHeaders });
+        }
+        const authUser = authUsers.users.find(u => u.email?.toLowerCase() === customerEmail.toLowerCase());
+        if (!authUser) {
+          logStep("No auth user found for email", { customerEmail });
+          return new Response("Auth user not found", { status: 200, headers: corsHeaders });
+        }
+
+        const { error: upsertError } = await supabase
+          .from("subscribers")
+          .upsert({
+            user_id: authUser.id,
+            email: customerEmail,
+            stripe_customer_id: customerId,
+            subscription_status: status,
+            subscribed: subscribed,
+            subscription_tier: subscribed ? "premium" : "free",
+            active_trial: false,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "email" });
+
+        if (upsertError) {
+          logStep("Database error when upserting subscriber via email fallback", { customerEmail, error: upsertError.message });
+          return new Response("Database upsert error", { status: 500, headers: corsHeaders });
+        }
+
+        logStep("Upserted subscriber via email fallback", { customerEmail, status, subscribed });
+        return new Response("ok", { status: 200, headers: corsHeaders });
       }
 
       const { error: updateError } = await supabase
         .from("subscribers")
-        .update({ 
+        .update({
+          stripe_customer_id: customerId,
           subscription_status: status,
           subscribed: subscribed,
+          subscription_tier: subscribed ? "premium" : "free",
+          active_trial: false,
           updated_at: new Date().toISOString()
         })
         .eq("stripe_customer_id", customerId);
-        
+
       if (updateError) {
         logStep("Database error when updating subscriber", { customerId, error: updateError.message });
-        return new Response("Database update error", { 
-          status: 500, 
-          headers: corsHeaders 
+        return new Response("Database update error", {
+          status: 500,
+          headers: corsHeaders
         });
       }
-      
+
       logStep("Updated subscription_status and subscribed", { email: subscriber.email, status, subscribed });
     }
     if (event.type === "customer.subscription.deleted") {
